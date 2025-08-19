@@ -1,3 +1,5 @@
+using System.Numerics;
+
 namespace CryptoPayment.BlockchainServices.Models;
 
 public record Transaction
@@ -26,7 +28,7 @@ public record PaymentAddress
     public string Address { get; init; } = string.Empty;
     public string Currency { get; init; } = string.Empty;
     public string? TokenContract { get; init; }
-    public string PrivateKey { get; init; } = string.Empty;
+    public string PrivateKeyId { get; init; } = string.Empty; // Reference to encrypted key, not the actual key
     public string PublicKey { get; init; } = string.Empty;
     public int DerivationIndex { get; init; }
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
@@ -41,7 +43,7 @@ public record TransactionRequest
     public string Currency { get; init; } = string.Empty;
     public string? TokenContract { get; init; }
     public string? FromAddress { get; init; }
-    public string? PrivateKey { get; init; }
+    public string? PrivateKeyId { get; init; } // Reference to stored key
     public decimal? GasPrice { get; init; }
     public BigInteger? GasLimit { get; init; }
     public Dictionary<string, object> Metadata { get; init; } = new();

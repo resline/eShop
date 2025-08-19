@@ -5,6 +5,18 @@
 
 # dotenv files
 .env
+.env.*
+!.env.example
+
+# Security sensitive files
+*.key
+*.pem
+*.p12
+*.pfx
+secrets.json
+appsettings.secrets.json
+**/secrets/**
+**/keys/**
 
 # User-specific files
 *.rsuser

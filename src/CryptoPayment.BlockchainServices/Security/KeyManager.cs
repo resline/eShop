@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.Options;
 using NBitcoin;
 using Nethereum.Web3.Accounts;
 using CryptoPayment.BlockchainServices.Abstractions;
@@ -12,15 +13,18 @@ public class KeyManager : IKeyManager
     private readonly ILogger<KeyManager> _logger;
     private readonly SecurityOptions _options;
     private readonly IKeyStorage _keyStorage;
+    private readonly KeyVaultConfiguration _keyVault;
 
     public KeyManager(
         ILogger<KeyManager> logger,
         IOptions<BlockchainOptions> options,
-        IKeyStorage keyStorage)
+        IKeyStorage keyStorage,
+        KeyVaultConfiguration keyVault)
     {
         _logger = logger;
         _options = options.Value.Security;
         _keyStorage = keyStorage;
+        _keyVault = keyVault;
     }
 
     public async Task<string> GeneratePrivateKeyAsync(CancellationToken cancellationToken = default)
@@ -131,13 +135,9 @@ public class KeyManager : IKeyManager
     {
         try
         {
-            if (string.IsNullOrEmpty(_options.EncryptionKey))
-            {
-                _logger.LogWarning("No encryption key configured, storing private key in plain text");
-                return privateKey;
-            }
-
-            var encryptedKey = await _keyStorage.EncryptAsync(privateKey, _options.EncryptionKey, cancellationToken);
+            // Use derived encryption key from master key
+            var encryptionKey = _keyVault.DeriveEncryptionKey("private_key_encryption");
+            var encryptedKey = await _keyStorage.EncryptAsync(privateKey, encryptionKey, cancellationToken);
             _logger.LogDebug("Private key encrypted successfully");
             
             return encryptedKey;
@@ -153,13 +153,9 @@ public class KeyManager : IKeyManager
     {
         try
         {
-            if (string.IsNullOrEmpty(_options.EncryptionKey))
-            {
-                _logger.LogWarning("No encryption key configured, returning private key as is");
-                return encryptedPrivateKey;
-            }
-
-            var decryptedKey = await _keyStorage.DecryptAsync(encryptedPrivateKey, _options.EncryptionKey, cancellationToken);
+            // Use derived encryption key from master key
+            var encryptionKey = _keyVault.DeriveEncryptionKey("private_key_encryption");
+            var decryptedKey = await _keyStorage.DecryptAsync(encryptedPrivateKey, encryptionKey, cancellationToken);
             _logger.LogDebug("Private key decrypted successfully");
             
             return decryptedKey;
