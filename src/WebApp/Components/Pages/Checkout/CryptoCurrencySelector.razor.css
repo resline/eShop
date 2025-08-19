@@ -1,0 +1,181 @@
+.crypto-currency-selector {
+    margin-bottom: 2rem;
+}
+
+.crypto-currency-selector h3 {
+    color: #000;
+    font-size: 1.25rem;
+    font-style: normal;
+    font-weight: 600;
+    line-height: 140%;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #D2D2D2;
+    padding-bottom: 0.5rem;
+}
+
+.currency-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.currency-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    border: 2px solid #E5E5E5;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: #FFF;
+    position: relative;
+    min-height: 80px;
+}
+
+.currency-card:hover {
+    border-color: #0066CC;
+    box-shadow: 0 4px 12px rgba(0, 102, 204, 0.1);
+    transform: translateY(-2px);
+}
+
+.currency-card.selected {
+    border-color: #0066CC;
+    background: linear-gradient(135deg, #F8FBFF 0%, #E6F3FF 100%);
+    box-shadow: 0 6px 20px rgba(0, 102, 204, 0.2);
+    transform: translateY(-2px);
+}
+
+.currency-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.currency-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.currency-symbol {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #000;
+    margin-bottom: 0.25rem;
+}
+
+.currency-name {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 0.25rem;
+}
+
+.currency-rate {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #0066CC;
+}
+
+.currency-rate.loading {
+    color: #999;
+    font-style: italic;
+}
+
+.stable-badge {
+    position: absolute;
+    top: -6px;
+    right: 8px;
+    background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.conversion-display {
+    background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+    border: 1px solid #E2E8F0;
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+}
+
+.conversion-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+}
+
+.usd-amount {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.conversion-arrow {
+    font-size: 1.5rem;
+    color: #6B7280;
+    font-weight: 300;
+}
+
+.crypto-amount {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #0066CC;
+    background: linear-gradient(135deg, #0066CC 0%, #004499 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.rate-info {
+    color: #6B7280;
+    font-size: 0.8rem;
+}
+
+@media only screen and (max-width: 768px) {
+    .currency-grid {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+    
+    .currency-card {
+        padding: 0.75rem;
+        min-height: 70px;
+    }
+    
+    .currency-symbol {
+        font-size: 1rem;
+    }
+    
+    .currency-name {
+        font-size: 0.85rem;
+    }
+    
+    .conversion-info {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .conversion-display {
+        padding: 1rem;
+    }
+}
+
+@media only screen and (max-width: 480px) {
+    .currency-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .currency-card {
+        padding: 0.75rem;
+    }
+}

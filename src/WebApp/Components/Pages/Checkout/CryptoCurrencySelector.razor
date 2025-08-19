@@ -1,0 +1,155 @@
+@using eShop.WebApp.Services
+@inject ICryptoPaymentService CryptoService
+
+<div class="crypto-currency-selector">
+    <h3>Select Cryptocurrency</h3>
+    <div class="currency-grid">
+        @foreach (var currency in GetAvailableCurrencies())
+        {
+            <div class="currency-card @(SelectedCurrency == currency ? "selected" : "")"
+                 @onclick="() => SelectCurrency(currency)">
+                <div class="currency-icon">
+                    @GetCurrencyIcon(currency)
+                </div>
+                <div class="currency-info">
+                    <div class="currency-symbol">@CryptoService.GetCurrencySymbol(currency)</div>
+                    <div class="currency-name">@CryptoService.GetCurrencyName(currency)</div>
+                    @if (ExchangeRates.ContainsKey(currency))
+                    {
+                        <div class="currency-rate">$@ExchangeRates[currency].ToString("N2")</div>
+                    }
+                    else
+                    {
+                        <div class="currency-rate loading">Loading...</div>
+                    }
+                </div>
+                @if (currency == CryptoCurrency.USDT || currency == CryptoCurrency.USDC)
+                {
+                    <div class="stable-badge">Stable</div>
+                }
+            </div>
+        }
+    </div>
+    
+    @if (SelectedCurrency.HasValue && TotalAmount > 0)
+    {
+        <div class="conversion-display">
+            <div class="conversion-info">
+                <span class="usd-amount">$@TotalAmount.ToString("N2") USD</span>
+                <span class="conversion-arrow">≈</span>
+                @if (ExchangeRates.ContainsKey(SelectedCurrency.Value))
+                {
+                    var cryptoAmount = TotalAmount / ExchangeRates[SelectedCurrency.Value];
+                    <span class="crypto-amount">@cryptoAmount.ToString("F8") @CryptoService.GetCurrencySymbol(SelectedCurrency.Value)</span>
+                }
+                else
+                {
+                    <span class="crypto-amount">Calculating...</span>
+                }
+            </div>
+            @if (LastUpdated.HasValue)
+            {
+                <div class="rate-info">
+                    <small>Rate updated @LastUpdated.Value.ToString("HH:mm:ss")</small>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public CryptoCurrency? SelectedCurrency { get; set; }
+    [Parameter] public EventCallback<CryptoCurrency?> SelectedCurrencyChanged { get; set; }
+    [Parameter] public decimal TotalAmount { get; set; }
+
+    private Dictionary<CryptoCurrency, decimal> ExchangeRates = new();
+    private DateTime? LastUpdated;
+    private Timer? _refreshTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadExchangeRates();
+        
+        // Set up auto-refresh every 30 seconds
+        _refreshTimer = new Timer(async _ => await InvokeAsync(LoadExchangeRates), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+    }
+
+    private async Task LoadExchangeRates()
+    {
+        try
+        {
+            foreach (var currency in GetAvailableCurrencies())
+            {
+                var rate = await CryptoService.GetExchangeRateAsync(currency);
+                ExchangeRates[currency] = rate;
+            }
+            LastUpdated = DateTime.Now;
+            StateHasChanged();
+        }
+        catch (Exception)
+        {
+            // Handle error silently for now
+        }
+    }
+
+    private async Task SelectCurrency(CryptoCurrency currency)
+    {
+        SelectedCurrency = currency;
+        await SelectedCurrencyChanged.InvokeAsync(currency);
+    }
+
+    private CryptoCurrency[] GetAvailableCurrencies()
+    {
+        return new[] 
+        { 
+            CryptoCurrency.Bitcoin, 
+            CryptoCurrency.Ethereum, 
+            CryptoCurrency.USDT, 
+            CryptoCurrency.USDC 
+        };
+    }
+
+    private RenderFragment GetCurrencyIcon(CryptoCurrency currency) => currency switch
+    {
+        CryptoCurrency.Bitcoin => @<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="16" cy="16" r="16" fill="#F7931A"/>
+            <path d="M22.1,15.5c0.6-1.8-1.1-2.8-2.9-3.4l0.6-2.4l-1.5-0.4l-0.6,2.3c-0.4-0.1-0.8-0.2-1.2-0.3l0.6-2.3l-1.5-0.4l-0.6,2.4 c-0.3-0.1-0.6-0.1-1-0.2v0l-2.1-0.5l-0.4,1.6c0,0,1.1,0.3,1.1,0.3c0.6,0.1,0.7,0.5,0.7,0.8l-0.7,2.8c0,0,0.1,0,0.2,0.1 c-0.1,0-0.1,0-0.2-0.1l-1,4c-0.1,0.2-0.3,0.5-0.8,0.4c0,0-1.1-0.3-1.1-0.3l-0.8,1.7l2,0.5c0.4,0.1,0.7,0.2,1.1,0.3l-0.6,2.4 l1.5,0.4l0.6-2.4c0.4,0.1,0.8,0.2,1.2,0.3l-0.6,2.4l1.5,0.4l0.6-2.4c2.5,0.5,4.4,0.3,5.2-2c0.6-1.9-0.03-3-1.4-3.7 C21.3,17.4,21.8,16.6,22.1,15.5z M19.5,19.4c-0.5,1.8-3.6,0.8-4.6,0.6l0.8-3.3C16.7,17,20,16,19.5,19.4z M20,15.4 c-0.4,1.6-3.1,0.8-4,0.6l0.7-3C17.7,13.2,20.5,14,20,15.4z" fill="white"/>
+        </svg>,
+        
+        CryptoCurrency.Ethereum => @<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="16" cy="16" r="16" fill="#627EEA"/>
+            <g fill="white" fill-opacity="0.602">
+                <path d="M16 4v8.87l7.5 3.35z"/>
+                <path d="M16 4L8.5 16.22l7.5-3.35z"/>
+            </g>
+            <g fill="white" fill-opacity="0.8">
+                <path d="M16 21.97v6.03l7.5-10.57z"/>
+                <path d="M16 28v-6.03L8.5 17.4z"/>
+            </g>
+            <g fill="white" fill-opacity="0.602">
+                <path d="M16 20.73l7.5-4.51L16 12.87z"/>
+                <path d="M8.5 16.22l7.5 4.51v-7.86z"/>
+            </g>
+        </svg>,
+        
+        CryptoCurrency.USDT => @<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="16" cy="16" r="16" fill="#26A17B"/>
+            <path d="M17.9 11.5h-3.8V9.3h9.4v2.2h-3.8v2.3c2.1 0.2 3.7 1 3.7 1.9v0.1c0 1.1-2.1 2-4.7 2s-4.7-0.9-4.7-2v-0.1c0-0.9 1.6-1.7 3.7-1.9V11.5z M18.7 16.2c-0.8 0.1-1.8 0.1-2.7 0.1s-1.9 0-2.7-0.1c-1.6-0.2-2.8-0.5-2.8-0.9s1.2-0.7 2.8-0.9c0.8-0.1 1.8-0.1 2.7-0.1s1.9 0 2.7 0.1c1.6 0.2 2.8 0.5 2.8 0.9S20.3 16 18.7 16.2z" fill="white"/>
+        </svg>,
+        
+        CryptoCurrency.USDC => @<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="16" cy="16" r="16" fill="#2775CA"/>
+            <path d="M16 28C8.3 28 2 21.7 2 14S8.3 0 16 0s14 6.3 14 14-6.3 14-14 14z" fill="#2775CA"/>
+            <path d="M16 25c-6.1 0-11-4.9-11-11S9.9 3 16 3s11 4.9 11 11-4.9 11-11 11z" fill="white"/>
+            <path d="M16 22c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8z" fill="#2775CA"/>
+            <path d="M17.3 17.8v-1.5h1.2v-0.6h-1.2v-1.5h-0.6v1.5h-1.2v0.6h1.2v1.5c-1.3-0.1-2.3-0.7-2.3-1.4v-0.1c0-0.8 1.3-1.4 2.9-1.4s2.9 0.6 2.9 1.4v0.1C19.6 17.1 18.6 17.7 17.3 17.8z" fill="white"/>
+        </svg>,
+        
+        _ => @<div></div>
+    };
+
+    public void Dispose()
+    {
+        _refreshTimer?.Dispose();
+    }
+}

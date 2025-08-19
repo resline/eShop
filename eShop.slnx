@@ -19,6 +19,8 @@
     <Project Path="src/WebAppComponents/WebAppComponents.csproj" />
     <Project Path="src/HybridApp/HybridApp.csproj" />
     <Project Path="src/ClientApp/ClientApp.csproj" />
+    <Project Path="src/CryptoPayment.API/CryptoPayment.API.csproj" />
+    <Project Path="src/CryptoPayment.BlockchainServices/CryptoPayment.BlockchainServices.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Basket.UnitTests/Basket.UnitTests.csproj" />

@@ -81,3 +81,111 @@
         padding: 0 3rem;
     }
 }
+
+/* Loading spinner styles */
+.loading-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid transparent;
+    border-top: 2px solid currentColor;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 0.5rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Enhanced button styles for crypto payments */
+.checkout .button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    min-height: 44px;
+}
+
+.checkout .button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+.checkout .button-primary {
+    background: linear-gradient(135deg, #0066CC 0%, #004499 100%);
+    color: white;
+    box-shadow: 0 2px 4px rgba(0, 102, 204, 0.2);
+}
+
+.checkout .button-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #0052A3 0%, #003366 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
+}
+
+.checkout .button-secondary {
+    background: #F8F9FA;
+    color: #495057;
+    border: 1px solid #DEE2E6;
+}
+
+.checkout .button-secondary:hover {
+    background: #E9ECEF;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Crypto-specific enhancements */
+.checkout .form-section {
+    position: relative;
+}
+
+.checkout .form-section:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    bottom: -1.25rem;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, #E5E5E5 20%, #E5E5E5 80%, transparent 100%);
+}
+
+/* Status indicators */
+.status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.status-indicator.pending {
+    background: #FFF3CD;
+    color: #856404;
+    border: 1px solid #FFEAA7;
+}
+
+.status-indicator.confirmed {
+    background: #D4EDDA;
+    color: #155724;
+    border: 1px solid #B3D7B8;
+}
+
+.status-indicator.failed {
+    background: #F8D7DA;
+    color: #721C24;
+    border: 1px solid #F1B0B7;
+}

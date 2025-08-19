@@ -1,4 +1,5 @@
 ﻿using eShop.Basket.API.Grpc;
+using eShop.WebApp.Services;
 using eShop.WebApp.Services.OrderStatus.IntegrationEvents;
 using eShop.WebAppComponents.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -25,6 +26,7 @@ public static class Extensions
         builder.Services.AddSingleton<BasketService>();
         builder.Services.AddSingleton<OrderStatusNotificationService>();
         builder.Services.AddSingleton<IProductImageUrlProvider, ProductImageUrlProvider>();
+        builder.Services.AddScoped<ICryptoPaymentService, CryptoPaymentService>();
         builder.AddAIServices();
 
         // HTTP and GRPC client registrations
