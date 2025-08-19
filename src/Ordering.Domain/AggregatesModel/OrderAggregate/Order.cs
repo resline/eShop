@@ -195,7 +195,7 @@ public class Order
     {
         if (OrderStatus != OrderStatus.StockConfirmed)
         {
-            StatusChangeException(OrderStatus.Paid);
+            StatusChangeException(OrderStatus.AwaitingValidation);
         }
 
         if (string.IsNullOrWhiteSpace(cryptoPaymentId))

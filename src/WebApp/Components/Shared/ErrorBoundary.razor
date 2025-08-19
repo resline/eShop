@@ -1,0 +1,213 @@
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.Extensions.Logging
+@inject ILogger<ErrorBoundary> Logger
+@inject IJSRuntime JSRuntime
+
+<div class="error-boundary">
+    @if (hasError)
+    {
+        <div class="error-container @(IsFullPage ? "error-fullpage" : "error-inline")">
+            <div class="error-content">
+                @if (ErrorTemplate != null)
+                {
+                    @ErrorTemplate(currentException)
+                }
+                else
+                {
+                    <div class="error-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"/>
+                            <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2"/>
+                            <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                    </div>
+                    
+                    <h3 class="error-title">@GetErrorTitle()</h3>
+                    <p class="error-message">@GetErrorMessage()</p>
+                    
+                    @if (ShowDetails && !string.IsNullOrEmpty(errorDetails))
+                    {
+                        <details class="error-details">
+                            <summary>Technical Details</summary>
+                            <pre class="error-details-content">@errorDetails</pre>
+                        </details>
+                    }
+                    
+                    <div class="error-actions">
+                        @if (ShowRetry)
+                        {
+                            <button type="button" class="retry-button" @onclick="RetryAction" disabled="@isRetrying">
+                                @if (isRetrying)
+                                {
+                                    <div class="spinner spinner-small"></div>
+                                    <span>Retrying...</span>
+                                }
+                                else
+                                {
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M1 4v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                    <span>Try Again</span>
+                                }
+                            </button>
+                        }
+                        
+                        @if (ShowReload)
+                        {
+                            <button type="button" class="reload-button" @onclick="ReloadPage">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M21 3v5h-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M3 21v-5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                <span>Reload Page</span>
+                            </button>
+                        }
+                        
+                        @if (AdditionalActions != null)
+                        {
+                            @AdditionalActions
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        @ChildContent
+    }
+</div>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment<Exception>? ErrorTemplate { get; set; }
+    [Parameter] public RenderFragment? AdditionalActions { get; set; }
+    [Parameter] public bool ShowRetry { get; set; } = true;
+    [Parameter] public bool ShowReload { get; set; } = false;
+    [Parameter] public bool ShowDetails { get; set; } = false;
+    [Parameter] public bool IsFullPage { get; set; } = false;
+    [Parameter] public EventCallback OnRetry { get; set; }
+    [Parameter] public EventCallback<Exception> OnError { get; set; }
+    [Parameter] public string? CustomErrorMessage { get; set; }
+    [Parameter] public int MaxRetryAttempts { get; set; } = 3;
+
+    private bool hasError = false;
+    private bool isRetrying = false;
+    private Exception? currentException;
+    private string? errorDetails;
+    private int retryAttempts = 0;
+
+    protected override void OnParametersSet()
+    {
+        // Reset error state when parameters change (e.g., new content)
+        if (!hasError)
+        {
+            retryAttempts = 0;
+        }
+    }
+
+    public void ProcessError(Exception exception)
+    {
+        hasError = true;
+        currentException = exception;
+        errorDetails = exception.ToString();
+
+        Logger.LogError(exception, "Error boundary caught exception");
+
+        InvokeAsync(async () =>
+        {
+            if (OnError.HasDelegate)
+            {
+                await OnError.InvokeAsync(exception);
+            }
+            StateHasChanged();
+        });
+    }
+
+    public void ClearError()
+    {
+        hasError = false;
+        currentException = null;
+        errorDetails = null;
+        retryAttempts = 0;
+        StateHasChanged();
+    }
+
+    private string GetErrorTitle()
+    {
+        if (currentException == null) return "An Error Occurred";
+
+        return currentException switch
+        {
+            HttpRequestException => "Network Error",
+            TaskCanceledException => "Request Timeout",
+            ArgumentException => "Invalid Input",
+            UnauthorizedAccessException => "Access Denied",
+            InvalidOperationException => "Operation Failed",
+            _ => "An Error Occurred"
+        };
+    }
+
+    private string GetErrorMessage()
+    {
+        if (!string.IsNullOrEmpty(CustomErrorMessage))
+            return CustomErrorMessage;
+
+        if (currentException == null)
+            return "Something went wrong. Please try again.";
+
+        return currentException switch
+        {
+            HttpRequestException => "Unable to connect to the server. Please check your internet connection and try again.",
+            TaskCanceledException => "The operation timed out. Please try again.",
+            ArgumentException => "Invalid input provided. Please check your data and try again.",
+            UnauthorizedAccessException => "You don't have permission to perform this action.",
+            InvalidOperationException => "The operation could not be completed. Please try again.",
+            _ => "An unexpected error occurred. Please try again or contact support if the problem persists."
+        };
+    }
+
+    private async Task RetryAction()
+    {
+        if (retryAttempts >= MaxRetryAttempts)
+        {
+            Logger.LogWarning("Maximum retry attempts ({MaxRetryAttempts}) reached", MaxRetryAttempts);
+            return;
+        }
+
+        isRetrying = true;
+        retryAttempts++;
+        StateHasChanged();
+
+        try
+        {
+            await Task.Delay(1000 * retryAttempts); // Progressive delay
+
+            if (OnRetry.HasDelegate)
+            {
+                await OnRetry.InvokeAsync();
+            }
+
+            // Clear error state after successful retry
+            ClearError();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Retry attempt {RetryAttempts} failed", retryAttempts);
+            ProcessError(ex);
+        }
+        finally
+        {
+            isRetrying = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ReloadPage()
+    {
+        await JSRuntime.InvokeVoidAsync("location.reload");
+    }
+}

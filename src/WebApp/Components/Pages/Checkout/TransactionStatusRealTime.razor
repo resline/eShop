@@ -1,0 +1,469 @@
+@using eShop.WebApp.Services
+@inject ICryptoPaymentService CryptoService
+@inject IPaymentStatusSignalRService SignalRService
+@inject ILogger<TransactionStatusRealTime> Logger
+@implements IAsyncDisposable
+
+<div class="transaction-status">
+    <div class="status-header">
+        <div class="status-icon @GetStatusClass()">
+            @GetStatusIcon()
+        </div>
+        <div class="status-info">
+            <h3>@GetStatusTitle()</h3>
+            <p>@GetStatusDescription()</p>
+        </div>
+        @if (ConnectionStatus != SignalRConnectionStatus.Connected)
+        {
+            <div class="connection-indicator @GetConnectionClass()">
+                @GetConnectionIcon()
+                <span class="connection-text">@GetConnectionText()</span>
+            </div>
+        }
+    </div>
+
+    @if (TransactionId != null)
+    {
+        <div class="transaction-details">
+            <div class="detail-row">
+                <span class="detail-label">Transaction ID:</span>
+                <span class="detail-value transaction-id">@TransactionId</span>
+            </div>
+            @if (CryptoCurrency.HasValue)
+            {
+                <div class="detail-row">
+                    <span class="detail-label">Currency:</span>
+                    <span class="detail-value">@CryptoService.GetCurrencyName(CryptoCurrency.Value) (@CryptoService.GetCurrencySymbol(CryptoCurrency.Value))</span>
+                </div>
+            }
+            @if (Amount.HasValue)
+            {
+                <div class="detail-row">
+                    <span class="detail-label">Amount:</span>
+                    <span class="detail-value">@Amount.Value.ToString("F8") @(CryptoCurrency.HasValue ? CryptoService.GetCurrencySymbol(CryptoCurrency.Value) : "")</span>
+                </div>
+            }
+            @if (Timestamp.HasValue)
+            {
+                <div class="detail-row">
+                    <span class="detail-label">Time:</span>
+                    <span class="detail-value">@Timestamp.Value.ToString("yyyy-MM-dd HH:mm:ss") UTC</span>
+                </div>
+            }
+            @if (Confirmations.HasValue)
+            {
+                <div class="detail-row">
+                    <span class="detail-label">Confirmations:</span>
+                    <span class="detail-value">@Confirmations.Value</span>
+                </div>
+            }
+        </div>
+    }
+
+    @if (Status == CryptoTransactionStatus.Pending)
+    {
+        <div class="status-progress">
+            <div class="progress-bar">
+                <div class="progress-fill"></div>
+            </div>
+            <div class="progress-text">
+                <span>Waiting for network confirmations...</span>
+                @if (ConnectionStatus == SignalRConnectionStatus.Connected)
+                {
+                    <span class="real-time-indicator">Real-time updates active</span>
+                }
+                else
+                {
+                    <span class="fallback-indicator">Checking periodically...</span>
+                }
+            </div>
+        </div>
+
+        <div class="pending-actions">
+            <button type="button" class="refresh-button" @onclick="CheckStatus" disabled="@isChecking">
+                @if (isChecking)
+                {
+                    <div class="spinner-small"></div>
+                    <span>Checking...</span>
+                }
+                else
+                {
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M23 4v6h-6M1 20v-6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span>Check Status</span>
+                }
+            </button>
+        </div>
+    }
+
+    @if (Status == CryptoTransactionStatus.Confirmed)
+    {
+        <div class="success-actions">
+            <button type="button" class="continue-button" @onclick="OnTransactionConfirmed">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>Continue to Order</span>
+            </button>
+        </div>
+    }
+
+    @if (Status == CryptoTransactionStatus.Failed || Status == CryptoTransactionStatus.Expired)
+    {
+        <div class="error-actions">
+            <button type="button" class="retry-button" @onclick="OnRetryPayment">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M23 4v6h-6M1 20v-6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>Try Again</span>
+            </button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(LastUpdateMessage))
+    {
+        <div class="update-message @LastUpdateType">
+            <span>@LastUpdateMessage</span>
+            <small>@LastUpdateTime.ToString("HH:mm:ss")</small>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public CryptoTransactionStatus Status { get; set; }
+    [Parameter] public string? TransactionId { get; set; }
+    [Parameter] public CryptoCurrency? CryptoCurrency { get; set; }
+    [Parameter] public decimal? Amount { get; set; }
+    [Parameter] public DateTime? Timestamp { get; set; }
+    [Parameter] public int? Confirmations { get; set; }
+    [Parameter] public EventCallback OnTransactionConfirmed { get; set; }
+    [Parameter] public EventCallback OnRetryPayment { get; set; }
+
+    private bool isChecking = false;
+    private Timer? fallbackTimer;
+    private SignalRConnectionStatus ConnectionStatus = SignalRConnectionStatus.Disconnected;
+    private string LastUpdateMessage = string.Empty;
+    private string LastUpdateType = "info";
+    private DateTime LastUpdateTime = DateTime.Now;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Subscribe to SignalR events
+            SignalRService.PaymentStatusChanged += OnPaymentStatusChanged;
+            SignalRService.TransactionDetected += OnTransactionDetected;
+            SignalRService.PaymentExpired += OnPaymentExpired;
+            SignalRService.ExchangeRateUpdated += OnExchangeRateUpdated;
+
+            // Start SignalR connection
+            await SignalRService.StartAsync();
+            ConnectionStatus = SignalRConnectionStatus.Connected;
+
+            // Join payment group if we have a transaction ID
+            if (!string.IsNullOrEmpty(TransactionId))
+            {
+                await SignalRService.JoinPaymentGroupAsync(TransactionId);
+                ShowUpdateMessage("Connected to real-time updates", "success");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to initialize SignalR connection");
+            ConnectionStatus = SignalRConnectionStatus.Failed;
+            ShowUpdateMessage("Real-time updates unavailable, using fallback", "warning");
+        }
+
+        // Start fallback timer for cases where SignalR fails
+        if (Status == CryptoTransactionStatus.Pending)
+        {
+            StartFallbackTimer();
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Status != CryptoTransactionStatus.Pending)
+        {
+            StopFallbackTimer();
+            
+            if (!string.IsNullOrEmpty(TransactionId))
+            {
+                try
+                {
+                    await SignalRService.LeavePaymentGroupAsync(TransactionId);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Failed to leave payment group");
+                }
+            }
+        }
+    }
+
+    private void OnPaymentStatusChanged(object? sender, PaymentStatusChangedEventArgs e)
+    {
+        if (e.PaymentId == TransactionId)
+        {
+            InvokeAsync(() =>
+            {
+                var oldStatus = Status;
+                Status = MapPaymentStatusToCryptoTransactionStatus(e.NewStatus);
+                
+                if (e.Confirmations.HasValue)
+                    Confirmations = e.Confirmations.Value;
+
+                ShowUpdateMessage($"Status updated: {oldStatus} → {Status}", "success");
+                StateHasChanged();
+
+                if (Status == CryptoTransactionStatus.Confirmed)
+                {
+                    OnTransactionConfirmed.InvokeAsync();
+                }
+            });
+        }
+    }
+
+    private void OnTransactionDetected(object? sender, TransactionDetectedEventArgs e)
+    {
+        if (e.PaymentId == TransactionId)
+        {
+            InvokeAsync(() =>
+            {
+                Confirmations = e.Confirmations;
+                ShowUpdateMessage($"Transaction detected with {e.Confirmations} confirmations", "info");
+                StateHasChanged();
+            });
+        }
+    }
+
+    private void OnPaymentExpired(object? sender, PaymentExpiredEventArgs e)
+    {
+        if (e.PaymentId == TransactionId)
+        {
+            InvokeAsync(() =>
+            {
+                Status = CryptoTransactionStatus.Expired;
+                ShowUpdateMessage("Payment has expired", "error");
+                StateHasChanged();
+            });
+        }
+    }
+
+    private void OnExchangeRateUpdated(object? sender, ExchangeRateUpdatedEventArgs e)
+    {
+        if (e.PaymentId == TransactionId)
+        {
+            InvokeAsync(() =>
+            {
+                Amount = e.NewCryptoAmount;
+                ShowUpdateMessage($"Exchange rate updated: ${e.NewRate:F2}", "info");
+                StateHasChanged();
+            });
+        }
+    }
+
+    private void StartFallbackTimer()
+    {
+        fallbackTimer?.Dispose();
+        fallbackTimer = new Timer(async _ => await InvokeAsync(CheckStatusFallback), null, 
+            TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+    }
+
+    private void StopFallbackTimer()
+    {
+        fallbackTimer?.Dispose();
+    }
+
+    private async Task CheckStatus()
+    {
+        if (isChecking || TransactionId == null) return;
+
+        isChecking = true;
+        StateHasChanged();
+
+        try
+        {
+            var newStatus = await CryptoService.CheckTransactionStatusAsync(TransactionId);
+            
+            if (newStatus != Status)
+            {
+                var oldStatus = Status;
+                Status = newStatus;
+                ShowUpdateMessage($"Manual check: {oldStatus} → {Status}", "info");
+                
+                if (Status != CryptoTransactionStatus.Pending)
+                {
+                    StopFallbackTimer();
+                }
+                StateHasChanged();
+            }
+            else
+            {
+                ShowUpdateMessage("Status checked - no changes", "info");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error checking transaction status manually");
+            ShowUpdateMessage("Error checking status", "error");
+        }
+        finally
+        {
+            isChecking = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CheckStatusFallback()
+    {
+        if (ConnectionStatus == SignalRConnectionStatus.Connected) return; // Skip if SignalR is working
+
+        try
+        {
+            await CheckStatus();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error in fallback status check");
+        }
+    }
+
+    private void ShowUpdateMessage(string message, string type)
+    {
+        LastUpdateMessage = message;
+        LastUpdateType = type;
+        LastUpdateTime = DateTime.Now;
+        
+        // Clear message after 5 seconds
+        _ = Task.Delay(5000).ContinueWith(_ => InvokeAsync(() =>
+        {
+            if (LastUpdateTime.AddSeconds(5) <= DateTime.Now)
+            {
+                LastUpdateMessage = string.Empty;
+                StateHasChanged();
+            }
+        }));
+    }
+
+    private static CryptoTransactionStatus MapPaymentStatusToCryptoTransactionStatus(PaymentStatus paymentStatus)
+    {
+        return paymentStatus switch
+        {
+            PaymentStatus.Pending => CryptoTransactionStatus.Pending,
+            PaymentStatus.Confirmed or PaymentStatus.Paid => CryptoTransactionStatus.Confirmed,
+            PaymentStatus.Failed => CryptoTransactionStatus.Failed,
+            PaymentStatus.Expired => CryptoTransactionStatus.Expired,
+            _ => CryptoTransactionStatus.Pending
+        };
+    }
+
+    private string GetStatusClass() => Status switch
+    {
+        CryptoTransactionStatus.Pending => "status-pending",
+        CryptoTransactionStatus.Confirmed => "status-confirmed",
+        CryptoTransactionStatus.Failed => "status-failed",
+        CryptoTransactionStatus.Expired => "status-expired",
+        _ => "status-pending"
+    };
+
+    private string GetConnectionClass() => ConnectionStatus switch
+    {
+        SignalRConnectionStatus.Connected => "connection-connected",
+        SignalRConnectionStatus.Connecting => "connection-connecting",
+        SignalRConnectionStatus.Disconnected => "connection-disconnected",
+        SignalRConnectionStatus.Failed => "connection-failed",
+        _ => "connection-disconnected"
+    };
+
+    private string GetConnectionText() => ConnectionStatus switch
+    {
+        SignalRConnectionStatus.Connected => "Connected",
+        SignalRConnectionStatus.Connecting => "Connecting...",
+        SignalRConnectionStatus.Disconnected => "Disconnected",
+        SignalRConnectionStatus.Failed => "Connection Failed",
+        _ => "Unknown"
+    };
+
+    private string GetStatusTitle() => Status switch
+    {
+        CryptoTransactionStatus.Pending => "Transaction Pending",
+        CryptoTransactionStatus.Confirmed => "Payment Confirmed",
+        CryptoTransactionStatus.Failed => "Transaction Failed",
+        CryptoTransactionStatus.Expired => "Payment Expired",
+        _ => "Checking Status"
+    };
+
+    private string GetStatusDescription() => Status switch
+    {
+        CryptoTransactionStatus.Pending => "Your transaction is being processed on the blockchain. This usually takes a few minutes.",
+        CryptoTransactionStatus.Confirmed => "Your payment has been successfully confirmed! You can now proceed with your order.",
+        CryptoTransactionStatus.Failed => "Your transaction failed to process. Please try again or contact support if the issue persists.",
+        CryptoTransactionStatus.Expired => "The payment window has expired. Please initiate a new payment to continue.",
+        _ => "Checking transaction status..."
+    };
+
+    private RenderFragment GetConnectionIcon() => ConnectionStatus switch
+    {
+        SignalRConnectionStatus.Connected => @<div class="connection-dot connected"></div>,
+        SignalRConnectionStatus.Connecting => @<div class="connection-dot connecting"></div>,
+        _ => @<div class="connection-dot disconnected"></div>
+    };
+
+    private RenderFragment GetStatusIcon() => Status switch
+    {
+        CryptoTransactionStatus.Pending => @<div class="spinner-large"></div>,
+        
+        CryptoTransactionStatus.Confirmed => @<svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"/>
+            <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>,
+        
+        CryptoTransactionStatus.Failed => @<svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"/>
+            <path d="M15 9l-6 6M9 9l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>,
+        
+        CryptoTransactionStatus.Expired => @<svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"/>
+            <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>,
+        
+        _ => @<div class="spinner-large"></div>
+    };
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            // Unsubscribe from SignalR events
+            SignalRService.PaymentStatusChanged -= OnPaymentStatusChanged;
+            SignalRService.TransactionDetected -= OnTransactionDetected;
+            SignalRService.PaymentExpired -= OnPaymentExpired;
+            SignalRService.ExchangeRateUpdated -= OnExchangeRateUpdated;
+
+            // Leave payment group
+            if (!string.IsNullOrEmpty(TransactionId))
+            {
+                await SignalRService.LeavePaymentGroupAsync(TransactionId);
+            }
+
+            StopFallbackTimer();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Error during disposal");
+        }
+    }
+}
+
+public enum SignalRConnectionStatus
+{
+    Disconnected,
+    Connecting,
+    Connected,
+    Failed
+}

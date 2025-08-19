@@ -128,4 +128,41 @@ public class AddressGenerationService : IAddressGenerationService
                address.StartsWith("0x") &&
                address[2..].All(c => char.IsDigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'));
     }
+
+    // Implementation of new interface methods for backward compatibility
+    public async Task<int> GetAddressUsageCountAsync(CryptoCurrencyType cryptoCurrency, CancellationToken cancellationToken = default)
+    {
+        return await _context.PaymentAddresses
+            .CountAsync(pa => pa.CryptoCurrencyId == (int)cryptoCurrency && pa.IsUsed, cancellationToken);
+    }
+
+    public async Task<int> GetUnusedAddressCountAsync(CryptoCurrencyType cryptoCurrency, CancellationToken cancellationToken = default)
+    {
+        return await _context.PaymentAddresses
+            .CountAsync(pa => pa.CryptoCurrencyId == (int)cryptoCurrency && !pa.IsUsed, cancellationToken);
+    }
+
+    public async Task<bool> PreGenerateAddressesAsync(CryptoCurrencyType cryptoCurrency, int count, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Pre-generating {Count} mock addresses for {CryptoCurrency}", count, cryptoCurrency);
+
+        for (int i = 0; i < count; i++)
+        {
+            if (cancellationToken.IsCancellationRequested) break;
+
+            try
+            {
+                await GenerateAddressAsync(cryptoCurrency, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to pre-generate address {Index} for {CryptoCurrency}", i + 1, cryptoCurrency);
+                return false;
+            }
+
+            await Task.Delay(50, cancellationToken);
+        }
+
+        return true;
+    }
 }

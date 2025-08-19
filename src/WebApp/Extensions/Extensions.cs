@@ -26,7 +26,11 @@ public static class Extensions
         builder.Services.AddSingleton<BasketService>();
         builder.Services.AddSingleton<OrderStatusNotificationService>();
         builder.Services.AddSingleton<IProductImageUrlProvider, ProductImageUrlProvider>();
-        builder.Services.AddScoped<ICryptoPaymentService, CryptoPaymentService>();
+        
+        // Crypto payment services
+        builder.Services.AddScoped<ICryptoPaymentService, RealCryptoPaymentService>();
+        builder.Services.AddSingleton<IPaymentStatusSignalRService, PaymentStatusSignalRService>();
+        
         builder.AddAIServices();
 
         // HTTP and GRPC client registrations
@@ -38,6 +42,10 @@ public static class Extensions
             .AddAuthToken();
 
         builder.Services.AddHttpClient<OrderingService>(o => o.BaseAddress = new("http://ordering-api"))
+            .AddApiVersion(1.0)
+            .AddAuthToken();
+
+        builder.Services.AddHttpClient<RealCryptoPaymentService>(o => o.BaseAddress = new("http://cryptopayment-api"))
             .AddApiVersion(1.0)
             .AddAuthToken();
     }

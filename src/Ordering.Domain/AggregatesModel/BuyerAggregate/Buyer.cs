@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using eShop.Ordering.Domain.Events;
 using eShop.Ordering.Domain.Exceptions;
 
 namespace eShop.Ordering.Domain.AggregatesModel.BuyerAggregate;

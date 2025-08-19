@@ -1,5 +1,13 @@
 ﻿using eShop.CryptoPayment.API.IntegrationEvents;
+using eShop.CryptoPayment.API.Services;
+using eShop.CryptoPayment.API.Hubs;
 using CryptoPayment.BlockchainServices.Extensions;
+using Serilog;
+using Serilog.Events;
+using Serilog.Enrichers.Span;
+using Serilog.Sinks.SystemConsole.Themes;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 
 namespace eShop.CryptoPayment.API.Extensions;
 
@@ -31,9 +39,21 @@ internal static class Extensions
         services.AddHttpContextAccessor();
         services.AddTransient<IIdentityService, IdentityService>();
 
+        // Add Redis for caching
+        builder.AddRedis("cache");
+
         // Add crypto payment services
         services.AddScoped<ICryptoPaymentService, CryptoPaymentService>();
-        services.AddScoped<IAddressGenerationService, AddressGenerationService>();
+        services.AddScoped<IAddressGenerationService, RealAddressGenerationService>();
+        
+        // Add exchange rate service
+        services.Configure<ExchangeRateOptions>(builder.Configuration.GetSection("ExchangeRate"));
+        services.AddHttpClient<IExchangeRateService, ExchangeRateService>();
+        services.AddScoped<IExchangeRateService, ExchangeRateService>();
+        
+        // Add real-time notification services
+        services.AddSignalR();
+        services.AddScoped<IPaymentNotificationService, PaymentNotificationService>();
         
         // Add blockchain services
         services.AddBlockchainServices(builder.Configuration);

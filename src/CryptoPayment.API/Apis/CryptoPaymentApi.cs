@@ -50,6 +50,20 @@ public static class CryptoPaymentApi
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound)
             .Produces<ProblemDetails>(StatusCodes.Status400BadRequest);
 
+        // Exchange rate endpoints
+        api.MapGet("/exchange-rates/{currency}", GetExchangeRateAsync)
+            .WithName("GetExchangeRate")
+            .WithSummary("Get current exchange rate for cryptocurrency")
+            .WithDescription("Retrieves the current USD exchange rate for the specified cryptocurrency")
+            .Produces<ExchangeRateResult>(StatusCodes.Status200OK)
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound);
+
+        api.MapGet("/exchange-rates", GetExchangeRatesAsync)
+            .WithName("GetExchangeRates")
+            .WithSummary("Get current exchange rates for all supported cryptocurrencies")
+            .WithDescription("Retrieves current USD exchange rates for all supported cryptocurrencies")
+            .Produces<Dictionary<string, ExchangeRateResult>>(StatusCodes.Status200OK);
+
         // Webhook endpoint for payment providers
         api.MapPost("/webhook", ProcessWebhookAsync)
             .WithName("ProcessCryptoPaymentWebhook")
@@ -252,6 +266,71 @@ public static class CryptoPaymentApi
                 Detail = "An error occurred while processing the webhook",
                 Status = StatusCodes.Status400BadRequest
             });
+        }
+    }
+
+    public static async Task<IResult> GetExchangeRateAsync(
+        string currency,
+        IExchangeRateService exchangeRateService,
+        ILogger<IExchangeRateService> logger)
+    {
+        try
+        {
+            if (!Enum.TryParse<CryptoCurrencyType>(currency, true, out var cryptoCurrency))
+            {
+                return Results.BadRequest(new ProblemDetails
+                {
+                    Title = "Invalid currency",
+                    Detail = $"Currency '{currency}' is not supported",
+                    Status = StatusCodes.Status400BadRequest
+                });
+            }
+
+            var exchangeRate = await exchangeRateService.GetExchangeRateAsync(cryptoCurrency);
+            return Results.Ok(exchangeRate);
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogWarning(ex, "Failed to get exchange rate for {Currency}", currency);
+            return Results.NotFound(new ProblemDetails
+            {
+                Title = "Exchange rate not available",
+                Detail = ex.Message,
+                Status = StatusCodes.Status404NotFound
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error getting exchange rate for {Currency}", currency);
+            return Results.Problem(
+                title: "Internal server error",
+                detail: "An error occurred while retrieving the exchange rate",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
+    public static async Task<IResult> GetExchangeRatesAsync(
+        IExchangeRateService exchangeRateService,
+        ILogger<IExchangeRateService> logger)
+    {
+        try
+        {
+            var currencies = Enum.GetValues<CryptoCurrencyType>();
+            var exchangeRates = await exchangeRateService.GetExchangeRatesAsync(currencies);
+            
+            var result = exchangeRates.ToDictionary(
+                kvp => kvp.Key.ToString(), 
+                kvp => kvp.Value);
+
+            return Results.Ok(result);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error getting exchange rates");
+            return Results.Problem(
+                title: "Internal server error",
+                detail: "An error occurred while retrieving exchange rates",
+                statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 }

@@ -1,0 +1,16 @@
+﻿global using Xunit;
+global using FluentAssertions;
+global using Microsoft.AspNetCore.Mvc.Testing;
+global using Microsoft.AspNetCore.TestHost;
+global using Microsoft.EntityFrameworkCore;
+global using Microsoft.Extensions.DependencyInjection;
+global using Microsoft.Extensions.Hosting;
+global using Microsoft.Extensions.Logging;
+global using Microsoft.Extensions.Configuration;
+global using System.Net.Http.Json;
+global using System.Text.Json;
+global using eShop.CryptoPayment.API.Infrastructure;
+global using eShop.CryptoPayment.API.Models;
+global using eShop.CryptoPayment.API.Services;
+global using eShop.CryptoPayment.API.IntegrationEvents;
+global using eShop.CryptoPayment.API.IntegrationEvents.Events;
