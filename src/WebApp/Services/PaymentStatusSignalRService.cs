@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Authentication;
 using System.Text.Json;
 
 namespace eShop.WebApp.Services;
@@ -20,15 +22,21 @@ public class PaymentStatusSignalRService : IPaymentStatusSignalRService, IAsyncD
 {
     private readonly IConfiguration _configuration;
     private readonly ILogger<PaymentStatusSignalRService> _logger;
+    private readonly AuthenticationStateProvider _authStateProvider;
+    private readonly IHttpContextAccessor _httpContextAccessor;
     private HubConnection? _connection;
     private readonly CancellationTokenSource _cancellationTokenSource;
 
     public PaymentStatusSignalRService(
         IConfiguration configuration,
-        ILogger<PaymentStatusSignalRService> logger)
+        ILogger<PaymentStatusSignalRService> logger,
+        AuthenticationStateProvider authStateProvider,
+        IHttpContextAccessor httpContextAccessor)
     {
         _configuration = configuration;
         _logger = logger;
+        _authStateProvider = authStateProvider;
+        _httpContextAccessor = httpContextAccessor;
         _cancellationTokenSource = new CancellationTokenSource();
     }
 
@@ -144,9 +152,34 @@ public class PaymentStatusSignalRService : IPaymentStatusSignalRService, IAsyncD
 
     private async Task<string?> GetAccessTokenAsync()
     {
-        // TODO: Implement authentication token retrieval
-        // This would typically get the bearer token from the current user session
-        return await Task.FromResult<string?>(null);
+        try
+        {
+            // Try to get token from HttpContext first (for server-side scenarios)
+            if (_httpContextAccessor.HttpContext != null)
+            {
+                var accessToken = await _httpContextAccessor.HttpContext.GetTokenAsync("access_token");
+                if (!string.IsNullOrEmpty(accessToken))
+                {
+                    return accessToken;
+                }
+            }
+
+            // Fallback: get from authentication state (for client-side scenarios)
+            var authState = await _authStateProvider.GetAuthenticationStateAsync();
+            if (authState.User.Identity?.IsAuthenticated == true)
+            {
+                // In a real scenario, you might need to call the token endpoint
+                // For now, we'll return null if we can't get the token from HttpContext
+                _logger.LogWarning("User is authenticated but access token not available in HttpContext");
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving access token for SignalR connection");
+            return null;
+        }
     }
 
     private void OnPaymentStatusChanged(PaymentStatusChangedNotification notification)

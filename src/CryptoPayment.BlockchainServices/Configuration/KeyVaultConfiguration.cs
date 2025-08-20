@@ -21,7 +21,7 @@ public class KeyVaultConfiguration
         var envValue = Environment.GetEnvironmentVariable(keyName);
         if (!string.IsNullOrEmpty(envValue))
         {
-            _logger.LogDebug("Retrieved key {KeyName} from environment variable", keyName);
+            _logger.LogInformation("Retrieved key from environment variable successfully");
             return envValue;
         }
 
@@ -36,19 +36,19 @@ public class KeyVaultConfiguration
                 var envVar = Environment.GetEnvironmentVariable(envVarName);
                 if (!string.IsNullOrEmpty(envVar))
                 {
-                    _logger.LogDebug("Retrieved key {KeyName} from environment variable {EnvVar}", keyName, envVarName);
+                    _logger.LogInformation("Retrieved key from environment variable successfully");
                     return envVar;
                 }
                 else
                 {
-                    _logger.LogWarning("Environment variable {EnvVar} not found for key {KeyName}", envVarName, keyName);
+                    _logger.LogWarning("Required environment variable not found for configuration key");
                     throw new InvalidOperationException($"Required environment variable {envVarName} not found");
                 }
             }
             return configValue;
         }
 
-        _logger.LogError("Key {KeyName} not found in configuration or environment variables", keyName);
+        _logger.LogError("Required configuration key not found in configuration or environment variables");
         throw new InvalidOperationException($"Required key {keyName} not found");
     }
 
@@ -79,16 +79,45 @@ public class KeyVaultConfiguration
     public string DeriveEncryptionKey(string purpose, string? salt = null)
     {
         var masterKey = GetMasterKey();
-        var derivationInput = $"{masterKey}:{purpose}";
         
-        if (!string.IsNullOrEmpty(salt))
+        // Convert master key to bytes (assume base64 encoded)
+        byte[] masterKeyBytes;
+        try
         {
-            derivationInput += $":{salt}";
+            masterKeyBytes = Convert.FromBase64String(masterKey);
+        }
+        catch (FormatException)
+        {
+            // Fallback to UTF8 bytes if not base64
+            masterKeyBytes = System.Text.Encoding.UTF8.GetBytes(masterKey);
         }
 
-        using var sha256 = System.Security.Cryptography.SHA256.Create();
-        var hash = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(derivationInput));
-        return Convert.ToBase64String(hash);
+        // Use purpose as info parameter for HKDF
+        var info = System.Text.Encoding.UTF8.GetBytes(purpose);
+        
+        // Use provided salt or generate a default one for backward compatibility
+        byte[] saltBytes;
+        if (!string.IsNullOrEmpty(salt))
+        {
+            saltBytes = System.Text.Encoding.UTF8.GetBytes(salt);
+        }
+        else
+        {
+            // Use a static salt derived from purpose for backward compatibility
+            using var sha256 = System.Security.Cryptography.SHA256.Create();
+            saltBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes($"salt_{purpose}")).Take(16).ToArray();
+        }
+
+        // Use HKDF to derive a 256-bit (32 byte) key
+        const int outputLength = 32;
+        var derivedKey = System.Security.Cryptography.HKDF.Extract(System.Security.Cryptography.HashAlgorithmName.SHA256, masterKeyBytes, saltBytes);
+        var expandedKey = System.Security.Cryptography.HKDF.Expand(System.Security.Cryptography.HashAlgorithmName.SHA256, derivedKey, outputLength, info);
+        
+        // Clear sensitive data from memory
+        Array.Clear(masterKeyBytes, 0, masterKeyBytes.Length);
+        Array.Clear(derivedKey, 0, derivedKey.Length);
+        
+        return Convert.ToBase64String(expandedKey);
     }
 }
 

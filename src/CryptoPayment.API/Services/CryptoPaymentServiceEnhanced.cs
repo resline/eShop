@@ -77,8 +77,8 @@ public class CryptoPaymentServiceEnhanced : ICryptoPaymentService
             var paymentAddress = await _addressService.GetUnusedAddressAsync(request.CryptoCurrency, cancellationToken)
                 ?? await _addressService.GenerateAddressAsync(request.CryptoCurrency, cancellationToken);
 
-            _logger.LogDebug("Generated/retrieved payment address: {PaymentAddress} for currency: {CryptoCurrency}",
-                paymentAddress.Address, request.CryptoCurrency);
+            _logger.LogInformation("Generated/retrieved payment address for currency: {CryptoCurrency}",
+                request.CryptoCurrency);
 
             // Get cryptocurrency info
             var cryptoCurrency = await _context.CryptoCurrencies

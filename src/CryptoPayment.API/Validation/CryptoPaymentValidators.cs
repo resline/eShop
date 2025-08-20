@@ -1,5 +1,7 @@
 ﻿using FluentValidation;
 using System.Text.RegularExpressions;
+using CryptoPayment.API.Exceptions;
+using CryptoPayment.API.Middleware;
 
 namespace eShop.CryptoPayment.API.Validation;
 

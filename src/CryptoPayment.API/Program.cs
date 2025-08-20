@@ -1,7 +1,9 @@
 ﻿using eShop.CryptoPayment.API.Apis;
+using CryptoPayment.API.Apis;
 using eShop.CryptoPayment.API.Hubs;
 using CryptoPayment.API.Middleware;
 using CryptoPayment.API.Services;
+using CryptoPayment.API.Extensions;
 using CryptoPayment.BlockchainServices.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,12 +11,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 builder.AddApplicationServices();
 
+// Add comprehensive error handling
+builder.Services.AddErrorHandling();
+
 // Add security services
 builder.Services.AddKeyVaultConfiguration();
 builder.Services.AddWebhookValidation();
 builder.Services.AddCryptoPaymentRateLimiting();
-
-builder.Services.AddProblemDetails();
 
 var withApiVersioning = builder.Services.AddApiVersioning();
 
@@ -34,6 +37,9 @@ app.UseCors(policy => policy
     .AllowAnyHeader()
     .AllowCredentials());
 
+// Add error handling middleware (before other middleware)
+app.UseErrorHandling();
+
 // Add security middleware
 app.UseRateLimiter();
 app.UseMiddleware<RateLimitingLoggingMiddleware>();
@@ -42,6 +48,9 @@ var cryptoPayment = app.NewVersionedApi("CryptoPayment");
 
 cryptoPayment.MapCryptoPaymentApiV1()
            .RequireAuthorization();
+
+// Map error tracking API (no authorization required for error reporting)
+app.MapErrorTrackingApiV1();
 
 app.UseDefaultOpenApi();
 app.Run();

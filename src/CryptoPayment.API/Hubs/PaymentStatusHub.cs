@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Authorization;
+using System.Collections.Concurrent;
 using eShop.CryptoPayment.API.Models;
+using eShop.CryptoPayment.API.Services;
 
 namespace eShop.CryptoPayment.API.Hubs;
 
@@ -8,10 +10,18 @@ namespace eShop.CryptoPayment.API.Hubs;
 public class PaymentStatusHub : Hub
 {
     private readonly ILogger<PaymentStatusHub> _logger;
+    private readonly ICryptoPaymentService _paymentService;
+    private readonly IConnectionTracker _connectionTracker;
+    private const int MaxConnectionsPerUser = 5;
 
-    public PaymentStatusHub(ILogger<PaymentStatusHub> logger)
+    public PaymentStatusHub(
+        ILogger<PaymentStatusHub> logger, 
+        ICryptoPaymentService paymentService,
+        IConnectionTracker connectionTracker)
     {
         _logger = logger;
+        _paymentService = paymentService;
+        _connectionTracker = connectionTracker;
     }
 
     public async Task JoinPaymentGroup(string paymentId)
@@ -22,11 +32,36 @@ public class PaymentStatusHub : Hub
             return;
         }
 
+        var userId = Context.UserIdentifier;
+        if (string.IsNullOrEmpty(userId))
+        {
+            _logger.LogWarning("Unauthorized attempt to join payment group {PaymentId} from connection {ConnectionId}", 
+                paymentId, Context.ConnectionId);
+            return;
+        }
+
+        // Check if user can access this payment
+        var canAccess = await _paymentService.CanUserAccessPaymentAsync(paymentId, userId);
+        if (!canAccess)
+        {
+            _logger.LogWarning("User {UserId} attempted to join payment group {PaymentId} without permission", 
+                userId, paymentId);
+            return;
+        }
+
+        // Check connection limit per user
+        if (!CanUserAddConnection(userId))
+        {
+            _logger.LogWarning("User {UserId} exceeded maximum connections limit", userId);
+            await Clients.Caller.SendAsync("Error", "Maximum connections limit exceeded");
+            return;
+        }
+
         var groupName = GetPaymentGroupName(paymentId);
         await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
         
-        _logger.LogInformation("Connection {ConnectionId} joined payment group {GroupName}", 
-            Context.ConnectionId, groupName);
+        _logger.LogInformation("Connection {ConnectionId} (User: {UserId}) joined payment group {GroupName}", 
+            Context.ConnectionId, userId, groupName);
     }
 
     public async Task LeavePaymentGroup(string paymentId)
@@ -46,13 +81,25 @@ public class PaymentStatusHub : Hub
 
     public override async Task OnConnectedAsync()
     {
+        var userId = Context.UserIdentifier;
+        if (!string.IsNullOrEmpty(userId))
+        {
+            AddUserConnection(userId, Context.ConnectionId);
+        }
+        
         _logger.LogInformation("Client connected: {ConnectionId}, User: {UserId}", 
-            Context.ConnectionId, Context.UserIdentifier);
+            Context.ConnectionId, userId);
         await base.OnConnectedAsync();
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
+        var userId = Context.UserIdentifier;
+        if (!string.IsNullOrEmpty(userId))
+        {
+            RemoveUserConnection(userId, Context.ConnectionId);
+        }
+        
         if (exception != null)
         {
             _logger.LogWarning(exception, "Client disconnected with error: {ConnectionId}", Context.ConnectionId);
@@ -66,6 +113,42 @@ public class PaymentStatusHub : Hub
     }
 
     private static string GetPaymentGroupName(string paymentId) => $"payment_{paymentId}";
+
+    private static bool CanUserAddConnection(string userId)
+    {
+        lock (_connectionLock)
+        {
+            return !_userConnections.ContainsKey(userId) || 
+                   _userConnections[userId].Count < MaxConnectionsPerUser;
+        }
+    }
+
+    private static void AddUserConnection(string userId, string connectionId)
+    {
+        lock (_connectionLock)
+        {
+            if (!_userConnections.ContainsKey(userId))
+            {
+                _userConnections[userId] = new HashSet<string>();
+            }
+            _userConnections[userId].Add(connectionId);
+        }
+    }
+
+    private static void RemoveUserConnection(string userId, string connectionId)
+    {
+        lock (_connectionLock)
+        {
+            if (_userConnections.ContainsKey(userId))
+            {
+                _userConnections[userId].Remove(connectionId);
+                if (_userConnections[userId].Count == 0)
+                {
+                    _userConnections.Remove(userId);
+                }
+            }
+        }
+    }
 }
 
 // Extension methods for IHubContext to send notifications

@@ -22,7 +22,8 @@ public record ExchangeRateOptions
     public string PrimaryApiUrl { get; init; } = "https://api.coingecko.com/api/v3";
     public string BackupApiUrl { get; init; } = "https://pro-api.coinmarketcap.com/v1";
     public string? CoinMarketCapApiKey { get; init; }
-    public TimeSpan CacheExpiry { get; init; } = TimeSpan.FromSeconds(30);
+    public TimeSpan CacheExpiry { get; init; } = TimeSpan.FromMinutes(5); // Increased from 30s to 5 minutes
+    public TimeSpan EmergencyCacheMaxAge { get; init; } = TimeSpan.FromHours(2); // Allow stale data for 2 hours
     public TimeSpan RequestTimeout { get; init; } = TimeSpan.FromSeconds(10);
     public int MaxRetries { get; init; } = 3;
     public TimeSpan RetryDelay { get; init; } = TimeSpan.FromSeconds(1);

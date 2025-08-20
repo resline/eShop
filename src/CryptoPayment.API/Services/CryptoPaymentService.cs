@@ -165,6 +165,24 @@ public class CryptoPaymentService : ICryptoPaymentService
         return payments.Select(MapToPaymentResponse);
     }
 
+    public async Task<PaymentResponse?> GetPaymentByTransactionHashAsync(string transactionHash, CancellationToken cancellationToken = default)
+    {
+        var payment = await _context.CryptoPayments
+            .Include(p => p.CryptoCurrency)
+            .Include(p => p.PaymentAddress)
+            .FirstOrDefaultAsync(p => p.TransactionHash == transactionHash, cancellationToken);
+
+        return payment != null ? MapToPaymentResponse(payment) : null;
+    }
+
+    public async Task<bool> CanUserAccessPaymentAsync(string paymentId, string userId, CancellationToken cancellationToken = default)
+    {
+        var payment = await _context.CryptoPayments
+            .FirstOrDefaultAsync(p => p.PaymentId == paymentId, cancellationToken);
+
+        return payment?.BuyerId == userId;
+    }
+
     public async Task ExpirePaymentsAsync(CancellationToken cancellationToken = default)
     {
         var expiredPayments = await _context.CryptoPayments

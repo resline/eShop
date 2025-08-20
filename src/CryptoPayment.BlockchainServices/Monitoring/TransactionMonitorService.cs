@@ -1,5 +1,8 @@
 using System.Collections.Concurrent;
 using System.Timers;
+using System.Text.Json;
+using System.Net.WebSockets;
+using System.Text;
 using Nethereum.JsonRpc.WebSocketClient;
 using CryptoPayment.BlockchainServices.Abstractions;
 using CryptoPayment.BlockchainServices.Configuration;
@@ -18,8 +21,10 @@ public class TransactionMonitorService : BackgroundService
     private readonly ConcurrentDictionary<string, MonitoredTransaction> _monitoredTransactions;
     private readonly Timer _pollingTimer;
     private WebSocketClient? _webSocketClient;
+    private ClientWebSocket? _customWebSocket;
     private bool _isWebSocketConnected;
     private int _reconnectAttempts;
+    private readonly CancellationTokenSource _webSocketCancellationTokenSource;
 
     public TransactionMonitorService(
         ILogger<TransactionMonitorService> logger,
@@ -36,6 +41,7 @@ public class TransactionMonitorService : BackgroundService
         _pollingTimer = new Timer(_options.PollingInterval.TotalMilliseconds);
         _pollingTimer.Elapsed += OnPollingTimerElapsed;
         _pollingTimer.AutoReset = true;
+        _webSocketCancellationTokenSource = new CancellationTokenSource();
         
         _logger.LogInformation("Transaction Monitor Service initialized");
     }
@@ -72,10 +78,18 @@ public class TransactionMonitorService : BackgroundService
         
         _pollingTimer.Stop();
         
+        _webSocketCancellationTokenSource.Cancel();
+        
         if (_webSocketClient != null)
         {
             await _webSocketClient.StopAsync();
             _webSocketClient.Dispose();
+        }
+        
+        if (_customWebSocket != null)
+        {
+            await _customWebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Service stopping", cancellationToken);
+            _customWebSocket.Dispose();
         }
 
         await base.StopAsync(cancellationToken);
@@ -153,18 +167,21 @@ public class TransactionMonitorService : BackgroundService
             using var scope = _scopeFactory.CreateScope();
             var options = scope.ServiceProvider.GetRequiredService<IOptions<BlockchainOptions>>().Value;
             
-            // Only connect to Ethereum WebSocket for now
-            var wsUrl = options.Ethereum.RpcEndpoint.Replace("http", "ws");
-            _webSocketClient = new WebSocketClient(wsUrl);
-
-            await _webSocketClient.StartAsync();
+            // Try Nethereum WebSocket client first for Ethereum
+            if (options.Ethereum.RpcEndpoint.Contains("ethereum") || options.Ethereum.RpcEndpoint.Contains("eth"))
+            {
+                await ConnectEthereumWebSocket(options.Ethereum.RpcEndpoint, cancellationToken);
+            }
+            else
+            {
+                // Use custom WebSocket for other blockchain providers
+                await ConnectCustomWebSocket(options.Ethereum.RpcEndpoint, cancellationToken);
+            }
+            
             _isWebSocketConnected = true;
             _reconnectAttempts = 0;
             
-            _logger.LogInformation("WebSocket connected to {Url}", wsUrl);
-
-            // Subscribe to new block headers for transaction monitoring
-            // This is a simplified implementation - in production you'd want more specific subscriptions
+            _logger.LogInformation("WebSocket connected successfully");
         }
         catch (Exception ex)
         {

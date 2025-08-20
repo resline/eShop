@@ -1,0 +1,456 @@
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.Extensions.Logging
+@using System.Text.Json
+@inject ILogger<CryptoErrorBoundary> Logger
+@inject IJSRuntime JSRuntime
+@inject HttpClient HttpClient
+
+<div class="crypto-error-boundary">
+    @if (hasError)
+    {
+        <div class="error-container @(IsFullPage ? "error-fullpage" : "error-inline") crypto-error">
+            <div class="error-content">
+                @if (ErrorTemplate != null)
+                {
+                    @ErrorTemplate(currentException)
+                }
+                else
+                {
+                    <div class="error-icon crypto-error-icon">
+                        @if (IsCryptoPaymentError())
+                        {
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="12" cy="12" r="10" stroke="#f59e0b" stroke-width="2" fill="none"/>
+                                <path d="M12 6v6l4 2" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        }
+                        else
+                        {
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"/>
+                                <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2"/>
+                                <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                        }
+                    </div>
+                    
+                    <h3 class="error-title">@GetErrorTitle()</h3>
+                    <p class="error-message">@GetErrorMessage()</p>
+                    
+                    @if (IsCryptoPaymentError())
+                    {
+                        <div class="crypto-error-details">
+                            @if (!string.IsNullOrEmpty(transactionId))
+                            {
+                                <p class="transaction-id">Transaction ID: <code>@transactionId</code></p>
+                            }
+                            @if (!string.IsNullOrEmpty(correlationId))
+                            {
+                                <p class="correlation-id">Reference: <code>@correlationId</code></p>
+                            }
+                        </div>
+                    }
+                    
+                    @if (ShowDetails && !string.IsNullOrEmpty(errorDetails))
+                    {
+                        <details class="error-details">
+                            <summary>Technical Details</summary>
+                            <pre class="error-details-content">@errorDetails</pre>
+                        </details>
+                    }
+                    
+                    <div class="error-actions">
+                        @if (ShowRetry && CanRetry())
+                        {
+                            <button type="button" class="retry-button crypto-retry" @onclick="RetryAction" disabled="@isRetrying">
+                                @if (isRetrying)
+                                {
+                                    <div class="spinner spinner-small"></div>
+                                    <span>Retrying... (@(retryAttempts + 1)/@MaxRetryAttempts)</span>
+                                }
+                                else
+                                {
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M1 4v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                    <span>Try Again</span>
+                                }
+                            </button>
+                        }
+                        
+                        @if (ShowContactSupport && IsCriticalError())
+                        {
+                            <button type="button" class="support-button" @onclick="ContactSupport">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                <span>Contact Support</span>
+                            </button>
+                        }
+                        
+                        @if (ShowCheckStatus && IsCryptoPaymentError())
+                        {
+                            <button type="button" class="status-button" @onclick="CheckPaymentStatus">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c2.12 0 4.07.74 5.61 1.98" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                <span>Check Status</span>
+                            </button>
+                        }
+                        
+                        @if (ShowReload)
+                        {
+                            <button type="button" class="reload-button" @onclick="ReloadPage">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M21 3v5h-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M3 21v-5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                <span>Reload Page</span>
+                            </button>
+                        }
+                        
+                        @if (AdditionalActions != null)
+                        {
+                            @AdditionalActions
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        @ChildContent
+    }
+</div>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment<Exception>? ErrorTemplate { get; set; }
+    [Parameter] public RenderFragment? AdditionalActions { get; set; }
+    [Parameter] public bool ShowRetry { get; set; } = true;
+    [Parameter] public bool ShowReload { get; set; } = false;
+    [Parameter] public bool ShowDetails { get; set; } = false;
+    [Parameter] public bool ShowContactSupport { get; set; } = true;
+    [Parameter] public bool ShowCheckStatus { get; set; } = true;
+    [Parameter] public bool IsFullPage { get; set; } = false;
+    [Parameter] public EventCallback OnRetry { get; set; }
+    [Parameter] public EventCallback<Exception> OnError { get; set; }
+    [Parameter] public EventCallback<string> OnSupportRequest { get; set; }
+    [Parameter] public string? CustomErrorMessage { get; set; }
+    [Parameter] public string? TransactionId { get; set; }
+    [Parameter] public int MaxRetryAttempts { get; set; } = 3;
+    [Parameter] public string? CryptoPaymentApiUrl { get; set; } = "/api/crypto-payment";
+
+    private bool hasError = false;
+    private bool isRetrying = false;
+    private Exception? currentException;
+    private string? errorDetails;
+    private string? correlationId;
+    private string? transactionId;
+    private int retryAttempts = 0;
+    private Dictionary<string, object> errorMetadata = new();
+
+    protected override void OnParametersSet()
+    {
+        // Update transaction ID if provided via parameter
+        if (!string.IsNullOrEmpty(TransactionId) && string.IsNullOrEmpty(transactionId))
+        {
+            transactionId = TransactionId;
+        }
+
+        // Reset error state when parameters change (e.g., new content)
+        if (!hasError)
+        {
+            retryAttempts = 0;
+        }
+    }
+
+    public void ProcessError(Exception exception)
+    {
+        hasError = true;
+        currentException = exception;
+        errorDetails = exception.ToString();
+        
+        // Extract crypto-specific error information
+        ExtractCryptoErrorInfo(exception);
+
+        // Generate correlation ID if not present
+        if (string.IsNullOrEmpty(correlationId))
+        {
+            correlationId = Guid.NewGuid().ToString("N")[..8];
+        }
+
+        Logger.LogError(exception, "Crypto error boundary caught exception. CorrelationId: {CorrelationId}, TransactionId: {TransactionId}", 
+            correlationId, transactionId);
+
+        InvokeAsync(async () =>
+        {
+            // Send error to backend for tracking
+            await LogErrorToBackend(exception);
+
+            if (OnError.HasDelegate)
+            {
+                await OnError.InvokeAsync(exception);
+            }
+            StateHasChanged();
+        });
+    }
+
+    public void ClearError()
+    {
+        hasError = false;
+        currentException = null;
+        errorDetails = null;
+        retryAttempts = 0;
+        errorMetadata.Clear();
+        StateHasChanged();
+    }
+
+    private void ExtractCryptoErrorInfo(Exception exception)
+    {
+        errorMetadata.Clear();
+
+        // Try to extract structured error information
+        if (exception.Data.Contains("CorrelationId"))
+        {
+            correlationId = exception.Data["CorrelationId"]?.ToString();
+        }
+        
+        if (exception.Data.Contains("TransactionId"))
+        {
+            transactionId = exception.Data["TransactionId"]?.ToString();
+        }
+
+        // Extract from HttpRequestException for API errors
+        if (exception is HttpRequestException httpEx)
+        {
+            try
+            {
+                // Try to parse error response for structured data
+                var message = httpEx.Message;
+                if (message.Contains("correlation", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Extract correlation ID from error message if present
+                    var correlationMatch = System.Text.RegularExpressions.Regex.Match(
+                        message, @"correlation[^:]*:\s*([a-f0-9-]+)", 
+                        System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                    
+                    if (correlationMatch.Success)
+                    {
+                        correlationId = correlationMatch.Groups[1].Value;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to extract error metadata from HttpRequestException");
+            }
+        }
+
+        // Store error category for better handling
+        errorMetadata["ErrorType"] = exception.GetType().Name;
+        errorMetadata["IsCryptoRelated"] = IsCryptoPaymentError();
+    }
+
+    private async Task LogErrorToBackend(Exception exception)
+    {
+        try
+        {
+            var errorReport = new
+            {
+                CorrelationId = correlationId,
+                TransactionId = transactionId,
+                ErrorType = exception.GetType().Name,
+                ErrorMessage = exception.Message,
+                StackTrace = exception.ToString(),
+                UserAgent = await JSRuntime.InvokeAsync<string>("eval", "navigator.userAgent"),
+                Url = await JSRuntime.InvokeAsync<string>("eval", "window.location.href"),
+                Timestamp = DateTimeOffset.UtcNow,
+                Component = "CryptoErrorBoundary"
+            };
+
+            // Send to backend error tracking endpoint
+            await HttpClient.PostAsJsonAsync("/api/error-tracking/client-errors", errorReport);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to log error to backend");
+        }
+    }
+
+    private bool IsCryptoPaymentError()
+    {
+        if (currentException == null) return false;
+
+        var message = currentException.Message.ToLowerInvariant();
+        return message.Contains("crypto") || 
+               message.Contains("payment") || 
+               message.Contains("blockchain") || 
+               message.Contains("transaction") ||
+               message.Contains("wallet") ||
+               !string.IsNullOrEmpty(transactionId);
+    }
+
+    private bool IsCriticalError()
+    {
+        if (currentException == null) return false;
+
+        return currentException is SecurityException ||
+               currentException.Message.Contains("security", StringComparison.OrdinalIgnoreCase) ||
+               currentException.Message.Contains("unauthorized", StringComparison.OrdinalIgnoreCase) ||
+               retryAttempts >= MaxRetryAttempts;
+    }
+
+    private bool CanRetry()
+    {
+        if (retryAttempts >= MaxRetryAttempts) return false;
+        if (currentException == null) return true;
+
+        // Don't retry validation errors or security errors
+        return currentException is not (ArgumentException or SecurityException or UnauthorizedAccessException);
+    }
+
+    private string GetErrorTitle()
+    {
+        if (currentException == null) return "An Error Occurred";
+
+        return currentException switch
+        {
+            HttpRequestException when IsCryptoPaymentError() => "Payment Processing Error",
+            HttpRequestException => "Network Error", 
+            TaskCanceledException => "Request Timeout",
+            ArgumentException => "Invalid Payment Information",
+            UnauthorizedAccessException => "Access Denied",
+            SecurityException => "Security Error",
+            InvalidOperationException when IsCryptoPaymentError() => "Payment Operation Failed",
+            InvalidOperationException => "Operation Failed",
+            _ when IsCryptoPaymentError() => "Crypto Payment Error",
+            _ => "An Error Occurred"
+        };
+    }
+
+    private string GetErrorMessage()
+    {
+        if (!string.IsNullOrEmpty(CustomErrorMessage))
+            return CustomErrorMessage;
+
+        if (currentException == null)
+            return "Something went wrong with your payment. Please try again.";
+
+        if (IsCryptoPaymentError())
+        {
+            return currentException switch
+            {
+                HttpRequestException => "Unable to process your crypto payment. Please check your connection and try again.",
+                TaskCanceledException => "The payment request timed out. Please try again.",
+                ArgumentException => "Invalid payment information provided. Please check your wallet address and amount.",
+                UnauthorizedAccessException => "You don't have permission to make this payment.",
+                InvalidOperationException => "The payment could not be processed at this time. Please try again.",
+                _ => "An error occurred while processing your crypto payment. Please try again or contact support."
+            };
+        }
+
+        return currentException switch
+        {
+            HttpRequestException => "Unable to connect to the server. Please check your internet connection and try again.",
+            TaskCanceledException => "The operation timed out. Please try again.",
+            ArgumentException => "Invalid input provided. Please check your data and try again.",
+            UnauthorizedAccessException => "You don't have permission to perform this action.",
+            InvalidOperationException => "The operation could not be completed. Please try again.",
+            _ => "An unexpected error occurred. Please try again or contact support if the problem persists."
+        };
+    }
+
+    private async Task RetryAction()
+    {
+        if (retryAttempts >= MaxRetryAttempts)
+        {
+            Logger.LogWarning("Maximum retry attempts ({MaxRetryAttempts}) reached for CorrelationId: {CorrelationId}", 
+                MaxRetryAttempts, correlationId);
+            return;
+        }
+
+        isRetrying = true;
+        retryAttempts++;
+        StateHasChanged();
+
+        try
+        {
+            // Progressive delay with crypto-specific considerations
+            var delay = TimeSpan.FromSeconds(Math.Min(2 * retryAttempts, 10));
+            await Task.Delay(delay);
+
+            if (OnRetry.HasDelegate)
+            {
+                await OnRetry.InvokeAsync();
+            }
+
+            // Clear error state after successful retry
+            ClearError();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Retry attempt {RetryAttempts} failed for CorrelationId: {CorrelationId}", 
+                retryAttempts, correlationId);
+            ProcessError(ex);
+        }
+        finally
+        {
+            isRetrying = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ContactSupport()
+    {
+        var supportMessage = $"Error in crypto payment processing. " +
+                           $"Reference: {correlationId}, " +
+                           $"Transaction: {transactionId ?? "N/A"}, " +
+                           $"Error: {currentException?.GetType().Name ?? "Unknown"}";
+
+        if (OnSupportRequest.HasDelegate)
+        {
+            await OnSupportRequest.InvokeAsync(supportMessage);
+        }
+        else
+        {
+            // Default: copy to clipboard and show message
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", supportMessage);
+            await JSRuntime.InvokeVoidAsync("alert", 
+                $"Error details copied to clipboard. Please contact support with this information: {correlationId}");
+        }
+    }
+
+    private async Task CheckPaymentStatus()
+    {
+        if (string.IsNullOrEmpty(transactionId)) return;
+
+        try
+        {
+            var response = await HttpClient.GetAsync($"{CryptoPaymentApiUrl}/status/{transactionId}");
+            if (response.IsSuccessStatusCode)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Payment status check completed. Please refresh the page.");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Unable to check payment status. Please try again later.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to check payment status for transaction {TransactionId}", transactionId);
+            await JSRuntime.InvokeVoidAsync("alert", "Error checking payment status. Please try again later.");
+        }
+    }
+
+    private async Task ReloadPage()
+    {
+        await JSRuntime.InvokeVoidAsync("location.reload");
+    }
+}

@@ -34,7 +34,7 @@ public partial class AddressValidator : IAddressValidator
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error validating address {Address} for currency {Currency}", address, currency);
+            _logger.LogError(ex, "Error validating address for currency {Currency}", currency);
             return false;
         }
     }
@@ -70,7 +70,7 @@ public partial class AddressValidator : IAddressValidator
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Invalid Bitcoin address: {Address}", address);
+            _logger.LogWarning("Invalid Bitcoin address format detected");
             return false;
         }
     }
@@ -107,7 +107,7 @@ public partial class AddressValidator : IAddressValidator
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Invalid Ethereum address: {Address}", address);
+            _logger.LogWarning("Invalid Ethereum address format detected");
             return false;
         }
     }
@@ -149,7 +149,7 @@ public partial class AddressValidator : IAddressValidator
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Invalid Bech32 address: {Address}", address);
+            _logger.LogWarning("Invalid Bech32 address format detected");
             return false;
         }
     }

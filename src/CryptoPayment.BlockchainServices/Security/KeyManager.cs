@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Security;
+using System.Runtime.InteropServices;
 using Microsoft.Extensions.Options;
 using NBitcoin;
 using Nethereum.Web3.Accounts;
@@ -8,12 +10,15 @@ using CryptoPayment.BlockchainServices.Configuration;
 
 namespace CryptoPayment.BlockchainServices.Security;
 
-public class KeyManager : IKeyManager
+public class KeyManager : IKeyManager, IDisposable
 {
     private readonly ILogger<KeyManager> _logger;
     private readonly SecurityOptions _options;
     private readonly IKeyStorage _keyStorage;
     private readonly KeyVaultConfiguration _keyVault;
+    private readonly ConcurrentDictionary<string, SecureString> _secureKeyCache = new();
+    private readonly SemaphoreSlim _cacheLock = new(1, 1);
+    private bool _disposed = false;
 
     public KeyManager(
         ILogger<KeyManager> logger,
@@ -29,22 +34,31 @@ public class KeyManager : IKeyManager
 
     public async Task<string> GeneratePrivateKeyAsync(CancellationToken cancellationToken = default)
     {
+        byte[]? privateKeyBytes = null;
         try
         {
             // Generate a cryptographically secure private key
             using var rng = RandomNumberGenerator.Create();
-            var privateKeyBytes = new byte[32];
+            privateKeyBytes = new byte[32];
             rng.GetBytes(privateKeyBytes);
             
             var privateKey = Convert.ToHexString(privateKeyBytes).ToLowerInvariant();
             
-            _logger.LogDebug("Generated new private key");
+            _logger.LogInformation("Generated new private key successfully");
             return privateKey;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to generate private key");
             throw new InvalidOperationException("Failed to generate private key", ex);
+        }
+        finally
+        {
+            // Secure memory clearing
+            if (privateKeyBytes != null)
+            {
+                Array.Clear(privateKeyBytes, 0, privateKeyBytes.Length);
+            }
         }
     }
 
@@ -133,12 +147,16 @@ public class KeyManager : IKeyManager
 
     public async Task<string> EncryptPrivateKeyAsync(string privateKey, CancellationToken cancellationToken = default)
     {
+        SecureString? secureKey = null;
         try
         {
+            // Convert to SecureString for secure handling
+            secureKey = ConvertToSecureString(privateKey);
+            
             // Use derived encryption key from master key
             var encryptionKey = _keyVault.DeriveEncryptionKey("private_key_encryption");
             var encryptedKey = await _keyStorage.EncryptAsync(privateKey, encryptionKey, cancellationToken);
-            _logger.LogDebug("Private key encrypted successfully");
+            _logger.LogInformation("Private key encrypted successfully");
             
             return encryptedKey;
         }
@@ -146,6 +164,10 @@ public class KeyManager : IKeyManager
         {
             _logger.LogError(ex, "Failed to encrypt private key");
             throw new InvalidOperationException("Failed to encrypt private key", ex);
+        }
+        finally
+        {
+            secureKey?.Dispose();
         }
     }
 
@@ -156,7 +178,7 @@ public class KeyManager : IKeyManager
             // Use derived encryption key from master key
             var encryptionKey = _keyVault.DeriveEncryptionKey("private_key_encryption");
             var decryptedKey = await _keyStorage.DecryptAsync(encryptedPrivateKey, encryptionKey, cancellationToken);
-            _logger.LogDebug("Private key decrypted successfully");
+            _logger.LogInformation("Private key decrypted successfully");
             
             return decryptedKey;
         }
@@ -205,6 +227,61 @@ public class KeyManager : IKeyManager
         {
             return false;
         }
+    }
+
+    private static SecureString ConvertToSecureString(string input)
+    {
+        var secureString = new SecureString();
+        foreach (char c in input)
+        {
+            secureString.AppendChar(c);
+        }
+        secureString.MakeReadOnly();
+        return secureString;
+    }
+
+    private static string ConvertFromSecureString(SecureString secureString)
+    {
+        IntPtr ptr = IntPtr.Zero;
+        try
+        {
+            ptr = Marshal.SecureStringToGlobalAllocUnicode(secureString);
+            return Marshal.PtrToStringUni(ptr) ?? string.Empty;
+        }
+        finally
+        {
+            if (ptr != IntPtr.Zero)
+            {
+                Marshal.ZeroFreeGlobalAllocUnicode(ptr);
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!_disposed && disposing)
+        {
+            // Clear all cached secure strings
+            foreach (var kvp in _secureKeyCache)
+            {
+                kvp.Value?.Dispose();
+            }
+            _secureKeyCache.Clear();
+            
+            _cacheLock?.Dispose();
+            _disposed = true;
+        }
+    }
+
+    ~KeyManager()
+    {
+        Dispose(false);
     }
 }
 
@@ -287,7 +364,7 @@ public class InMemoryKeyStorage : IKeyStorage
     public Task<bool> StoreKeyAsync(string keyId, string encryptedKey, CancellationToken cancellationToken = default)
     {
         _keyStore.TryAdd(keyId, encryptedKey);
-        _logger.LogDebug("Stored key {KeyId}", keyId);
+        _logger.LogInformation("Stored key with ID ending in {KeyIdSuffix}", keyId.Length > 4 ? keyId[^4..] : "****");
         return Task.FromResult(true);
     }
 
@@ -299,10 +376,16 @@ public class InMemoryKeyStorage : IKeyStorage
 
     public Task<bool> DeleteKeyAsync(string keyId, CancellationToken cancellationToken = default)
     {
-        var removed = _keyStore.TryRemove(keyId, out _);
+        var removed = _keyStore.TryRemove(keyId, out var removedValue);
         if (removed)
         {
-            _logger.LogDebug("Deleted key {KeyId}", keyId);
+            // Secure disposal of the removed value
+            if (removedValue != null)
+            {
+                var chars = removedValue.ToCharArray();
+                Array.Clear(chars, 0, chars.Length);
+            }
+            _logger.LogInformation("Deleted key with ID ending in {KeyIdSuffix}", keyId.Length > 4 ? keyId[^4..] : "****");
         }
         return Task.FromResult(removed);
     }

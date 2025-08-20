@@ -93,7 +93,7 @@ public class RealAddressGenerationService : IAddressGenerationService
 
         if (address != null)
         {
-            _logger.LogDebug("Found unused {CryptoCurrency} address: {Address}", cryptoCurrency, address.Address);
+            _logger.LogInformation("Found unused {CryptoCurrency} address", cryptoCurrency);
         }
 
         return address;
@@ -133,7 +133,7 @@ public class RealAddressGenerationService : IAddressGenerationService
             var currency = MapCryptoCurrencyType(cryptoCurrency);
             var isValid = await _addressValidator.ValidateAsync(address, currency);
             
-            _logger.LogDebug("Address validation for {Address} ({Currency}): {IsValid}", address, cryptoCurrency, isValid);
+            _logger.LogInformation("Address validation for {Currency}: {IsValid}", cryptoCurrency, isValid);
             return isValid;
         }
         catch (Exception ex)
