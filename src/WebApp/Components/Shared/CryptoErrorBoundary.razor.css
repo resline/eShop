@@ -1,0 +1,286 @@
+.crypto-error-boundary {
+    width: 100%;
+}
+
+.error-container.crypto-error {
+    background: linear-gradient(135deg, #fef3cd 0%, #fef3cd 100%);
+    border: 2px solid #f59e0b;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);
+}
+
+.error-container.crypto-error.error-fullpage {
+    min-height: 400px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 2rem;
+}
+
+.error-container.crypto-error.error-inline {
+    padding: 1.5rem;
+    margin: 1rem 0;
+}
+
+.error-content {
+    text-align: center;
+    max-width: 600px;
+    width: 100%;
+}
+
+.error-icon.crypto-error-icon {
+    margin-bottom: 1rem;
+    display: flex;
+    justify-content: center;
+}
+
+.error-icon.crypto-error-icon svg {
+    animation: pulse 2s infinite;
+    filter: drop-shadow(0 2px 4px rgba(245, 158, 11, 0.3));
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.error-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #92400e;
+    margin-bottom: 0.75rem;
+}
+
+.error-message {
+    font-size: 1rem;
+    color: #92400e;
+    margin-bottom: 1.5rem;
+    line-height: 1.5;
+}
+
+.crypto-error-details {
+    background: #fef9e7;
+    border: 1px solid #f59e0b;
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+    font-size: 0.875rem;
+}
+
+.crypto-error-details p {
+    margin: 0.25rem 0;
+    color: #92400e;
+}
+
+.crypto-error-details code {
+    background: #f3f4f6;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    color: #374151;
+    user-select: all;
+}
+
+.error-details {
+    margin: 1rem 0;
+    text-align: left;
+}
+
+.error-details summary {
+    cursor: pointer;
+    font-weight: 500;
+    color: #92400e;
+    padding: 0.5rem;
+    border-radius: 4px;
+    background: #fef9e7;
+    border: 1px solid #f59e0b;
+}
+
+.error-details summary:hover {
+    background: #fef3cd;
+}
+
+.error-details-content {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 0 0 4px 4px;
+    padding: 1rem;
+    font-size: 0.75rem;
+    overflow-x: auto;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.error-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 1.5rem;
+}
+
+.error-actions button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    border: none;
+    text-decoration: none;
+}
+
+.retry-button.crypto-retry {
+    background: #059669;
+    color: white;
+}
+
+.retry-button.crypto-retry:hover:not(:disabled) {
+    background: #047857;
+    transform: translateY(-1px);
+}
+
+.retry-button.crypto-retry:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.support-button {
+    background: #3b82f6;
+    color: white;
+}
+
+.support-button:hover {
+    background: #2563eb;
+    transform: translateY(-1px);
+}
+
+.status-button {
+    background: #f59e0b;
+    color: white;
+}
+
+.status-button:hover {
+    background: #d97706;
+    transform: translateY(-1px);
+}
+
+.reload-button {
+    background: #6b7280;
+    color: white;
+}
+
+.reload-button:hover {
+    background: #4b5563;
+    transform: translateY(-1px);
+}
+
+.spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid transparent;
+    border-top: 2px solid currentColor;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.spinner.spinner-small {
+    width: 14px;
+    height: 14px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .error-container.crypto-error.error-fullpage {
+        margin: 1rem;
+        min-height: 300px;
+    }
+    
+    .error-container.crypto-error.error-inline {
+        padding: 1rem;
+        margin: 0.5rem 0;
+    }
+    
+    .error-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .error-actions button {
+        justify-content: center;
+    }
+    
+    .error-title {
+        font-size: 1.25rem;
+    }
+    
+    .error-message {
+        font-size: 0.875rem;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .error-container.crypto-error {
+        background: linear-gradient(135deg, #451a03 0%, #451a03 100%);
+        border-color: #f59e0b;
+        color: #fbbf24;
+    }
+    
+    .error-title,
+    .error-message {
+        color: #fbbf24;
+    }
+    
+    .crypto-error-details {
+        background: #292524;
+        border-color: #f59e0b;
+    }
+    
+    .crypto-error-details p {
+        color: #fbbf24;
+    }
+    
+    .crypto-error-details code {
+        background: #1f2937;
+        color: #e5e7eb;
+    }
+    
+    .error-details summary {
+        background: #292524;
+        color: #fbbf24;
+        border-color: #f59e0b;
+    }
+    
+    .error-details summary:hover {
+        background: #451a03;
+    }
+    
+    .error-details-content {
+        background: #1f2937;
+        border-color: #374151;
+        color: #e5e7eb;
+    }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+    .error-container.crypto-error {
+        border-width: 3px;
+        box-shadow: 0 0 0 2px #000;
+    }
+    
+    .error-actions button {
+        border: 2px solid #000;
+        font-weight: 700;
+    }
+}

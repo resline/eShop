@@ -1,0 +1,124 @@
+.payment-method-selector {
+    margin-bottom: 2rem;
+}
+
+.payment-method-selector h3 {
+    color: #000;
+    font-size: 1.25rem;
+    font-style: normal;
+    font-weight: 600;
+    line-height: 140%;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #D2D2D2;
+    padding-bottom: 0.5rem;
+}
+
+.payment-methods {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.payment-method {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem;
+    border: 2px solid #E5E5E5;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: #FFF;
+    position: relative;
+}
+
+.payment-method:hover {
+    border-color: #0066CC;
+    box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
+}
+
+.payment-method.selected {
+    border-color: #0066CC;
+    background: #F8FBFF;
+    box-shadow: 0 2px 8px rgba(0, 102, 204, 0.2);
+}
+
+.payment-method-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    background: #F5F5F5;
+    border-radius: 8px;
+    color: #666;
+}
+
+.payment-method.selected .payment-method-icon {
+    background: #0066CC;
+    color: #FFF;
+}
+
+.payment-method-content {
+    flex: 1;
+}
+
+.payment-method-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #000;
+    margin-bottom: 0.25rem;
+}
+
+.payment-method-description {
+    font-size: 0.9rem;
+    color: #666;
+    line-height: 1.4;
+}
+
+.crypto-badge {
+    position: absolute;
+    top: -8px;
+    right: 12px;
+    background: linear-gradient(135deg, #FF6B35 0%, #F7931E 100%);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.crypto-badge-text {
+    display: inline-block;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.8;
+    }
+}
+
+@media only screen and (max-width: 768px) {
+    .payment-method {
+        padding: 1rem;
+    }
+    
+    .payment-method-icon {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .payment-method-title {
+        font-size: 1rem;
+    }
+    
+    .payment-method-description {
+        font-size: 0.85rem;
+    }
+}

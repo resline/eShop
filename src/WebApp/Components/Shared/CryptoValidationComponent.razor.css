@@ -1,0 +1,187 @@
+.crypto-validation-component {
+    width: 100%;
+}
+
+.validation-errors {
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    position: relative;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.validation-error {
+    background-color: var(--color-error-bg, #fef2f2);
+    border: 1px solid var(--color-error-border, #fecaca);
+    color: var(--color-error-text, #dc2626);
+}
+
+.validation-warning {
+    background-color: var(--color-warning-bg, #fffbeb);
+    border: 1px solid var(--color-warning-border, #fed7aa);
+    color: var(--color-warning-text, #d97706);
+}
+
+.validation-info {
+    background-color: var(--color-info-bg, #eff6ff);
+    border: 1px solid var(--color-info-border, #bfdbfe);
+    color: var(--color-info-text, #2563eb);
+}
+
+.validation-success {
+    background-color: var(--color-success-bg, #f0fdf4);
+    border: 1px solid var(--color-success-border, #bbf7d0);
+    color: var(--color-success-text, #16a34a);
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.validation-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.validation-icon {
+    flex-shrink: 0;
+}
+
+.validation-title {
+    font-weight: 600;
+}
+
+.validation-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.validation-item {
+    padding: 2px 0;
+    position: relative;
+    padding-left: 16px;
+}
+
+.validation-item::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    top: 2px;
+    font-weight: bold;
+}
+
+.dismiss-button {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+    color: currentColor;
+}
+
+.dismiss-button:hover {
+    opacity: 1;
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.dismiss-button:focus {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .validation-error {
+        background-color: var(--color-error-bg-dark, #451a1a);
+        border-color: var(--color-error-border-dark, #7f1d1d);
+        color: var(--color-error-text-dark, #fca5a5);
+    }
+
+    .validation-warning {
+        background-color: var(--color-warning-bg-dark, #451a03);
+        border-color: var(--color-warning-border-dark, #92400e);
+        color: var(--color-warning-text-dark, #fbbf24);
+    }
+
+    .validation-info {
+        background-color: var(--color-info-bg-dark, #1e293b);
+        border-color: var(--color-info-border-dark, #475569);
+        color: var(--color-info-text-dark, #60a5fa);
+    }
+
+    .validation-success {
+        background-color: var(--color-success-bg-dark, #052e16);
+        border-color: var(--color-success-border-dark, #166534);
+        color: var(--color-success-text-dark, #4ade80);
+    }
+
+    .dismiss-button:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .validation-errors,
+    .validation-success {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+
+    .validation-header {
+        margin-bottom: 6px;
+    }
+
+    .dismiss-button {
+        top: 6px;
+        right: 6px;
+    }
+}
+
+/* Animation for validation appearance */
+.validation-errors,
+.validation-success {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Accessibility improvements */
+.validation-errors[role="alert"],
+.validation-success[role="status"] {
+    /* These roles are handled by screen readers automatically */
+}
+
+.validation-item {
+    /* Ensure proper spacing for screen readers */
+    line-height: 1.5;
+}
+
+/* Focus management */
+.validation-errors:focus-within,
+.validation-success:focus-within {
+    outline: 2px solid var(--color-focus, #2563eb);
+    outline-offset: 2px;
+}

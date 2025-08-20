@@ -1,0 +1,50 @@
+@using eShop.WebApp.Services
+
+<div class="payment-method-selector">
+    <h3>Choose Payment Method</h3>
+    <div class="payment-methods">
+        <div class="payment-method @(SelectedPaymentMethod == PaymentMethod.CreditCard ? "selected" : "")"
+             @onclick="() => SelectPaymentMethod(PaymentMethod.CreditCard)">
+            <div class="payment-method-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M2 8H22V6C22 4.89543 21.1046 4 20 4H4C2.89543 4 2 4.89543 2 6V8Z" fill="currentColor"/>
+                    <path d="M2 10V18C2 19.1046 2.89543 20 4 20H20C21.1046 20 22 19.1046 22 18V10H2ZM6 16C5.44772 16 5 15.5523 5 15C5 14.4477 5.44772 14 6 14H10C10.5523 14 11 14.4477 11 15C11 15.5523 10.5523 16 10 16H6Z" fill="currentColor"/>
+                </svg>
+            </div>
+            <div class="payment-method-content">
+                <div class="payment-method-title">Credit Card</div>
+                <div class="payment-method-description">Pay with Visa, Mastercard, or other cards</div>
+            </div>
+        </div>
+
+        <div class="payment-method @(SelectedPaymentMethod == PaymentMethod.Cryptocurrency ? "selected" : "")"
+             @onclick="() => SelectPaymentMethod(PaymentMethod.Cryptocurrency)">
+            <div class="payment-method-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13.5 17H10.5V15H9V13H10.5V11H9V9H10.5V7H13.5V9H15V11H13.5V13H15V15H13.5V17Z" fill="currentColor"/>
+                </svg>
+            </div>
+            <div class="payment-method-content">
+                <div class="payment-method-title">Cryptocurrency</div>
+                <div class="payment-method-description">Pay with Bitcoin, Ethereum, USDT, or USDC</div>
+            </div>
+            @if (SelectedPaymentMethod == PaymentMethod.Cryptocurrency)
+            {
+                <div class="crypto-badge">
+                    <span class="crypto-badge-text">Fast & Secure</span>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public PaymentMethod SelectedPaymentMethod { get; set; } = PaymentMethod.CreditCard;
+    [Parameter] public EventCallback<PaymentMethod> SelectedPaymentMethodChanged { get; set; }
+
+    private async Task SelectPaymentMethod(PaymentMethod method)
+    {
+        SelectedPaymentMethod = method;
+        await SelectedPaymentMethodChanged.InvokeAsync(method);
+    }
+}

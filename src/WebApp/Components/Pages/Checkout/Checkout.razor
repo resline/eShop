@@ -1,8 +1,9 @@
-﻿@page "/checkout"
+@page "/checkout"
 @using System.Globalization
 @using System.ComponentModel.DataAnnotations
 @inject BasketState Basket
 @inject NavigationManager Nav
+@inject ICryptoPaymentService CryptoService
 @attribute [Authorize]
 
 <PageTitle>Checkout | AdventureWorks</PageTitle>
@@ -50,10 +51,57 @@
                     </label>
                 </div>
             </div>
+
+            <div class="form-section">
+                <CryptoPaymentMethod SelectedPaymentMethod="@Info.PaymentMethod"
+                                   SelectedPaymentMethodChanged="@OnPaymentMethodChanged" />
+                
+                @if (Info.PaymentMethod == PaymentMethod.Cryptocurrency)
+                {
+                    <CryptoCurrencySelector SelectedCurrency="@Info.SelectedCryptoCurrency"
+                                          SelectedCurrencyChanged="@OnCurrencyChanged"
+                                          TotalAmount="@totalAmount" />
+                    
+                    @if (cryptoPaymentInfo != null)
+                    {
+                        <CryptoPaymentDisplay PaymentInfo="@cryptoPaymentInfo"
+                                            OnPaymentCompleted="@OnCryptoPaymentCompleted" />
+                    }
+                    
+                    @if (showTransactionStatus && Info.TransactionId != null)
+                    {
+                        <TransactionStatus Status="@(Info.TransactionStatus ?? CryptoTransactionStatus.Pending)"
+                                         TransactionId="@Info.TransactionId"
+                                         CryptoCurrency="@Info.SelectedCryptoCurrency"
+                                         Amount="@Info.CryptoAmount"
+                                         Timestamp="@DateTime.UtcNow"
+                                         OnTransactionConfirmed="@OnTransactionConfirmed"
+                                         OnRetryPayment="@OnRetryPayment" />
+                    }
+                }
+            </div>
+
             <div class="form-section">
                 <div class="form-buttons">
                     <a href="cart" class="button button-secondary"><img role="presentation" src="icons/arrow-left.svg" />Back to the shopping bag</a>
-                    <button class="button button-primary" type="submit">Place order</button>
+                    @if (Info.PaymentMethod == PaymentMethod.CreditCard || (Info.PaymentMethod == PaymentMethod.Cryptocurrency && Info.TransactionStatus == CryptoTransactionStatus.Confirmed))
+                    {
+                        <button class="button button-primary" type="submit">Place order</button>
+                    }
+                    else if (Info.PaymentMethod == PaymentMethod.Cryptocurrency && Info.SelectedCryptoCurrency.HasValue && cryptoPaymentInfo == null)
+                    {
+                        <button class="button button-primary" type="button" @onclick="InitiateCryptoPayment" disabled="@isInitiatingPayment">
+                            @if (isInitiatingPayment)
+                            {
+                                <span class="loading-spinner"></span>
+                                <span>Preparing Payment...</span>
+                            }
+                            else
+                            {
+                                <span>Initiate Crypto Payment</span>
+                            }
+                        </button>
+                    }
                 </div>
             </div>
         </div>
@@ -64,6 +112,10 @@
 @code {
     private EditContext editContext = default!;
     private ValidationMessageStore extraMessages = default!;
+    private CryptoPaymentInfo? cryptoPaymentInfo;
+    private bool showTransactionStatus = false;
+    private bool isInitiatingPayment = false;
+    private decimal totalAmount = 0;
 
     [SupplyParameterFromForm]
     public BasketCheckoutInfo Info { get; set; } = default!;
@@ -71,7 +123,7 @@
     [CascadingParameter]
     public HttpContext HttpContext { get; set; } = default!;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         if (Info is null)
         {
@@ -80,6 +132,10 @@
 
         editContext = new EditContext(Info!);
         extraMessages = new ValidationMessageStore(editContext);
+
+        // Calculate total amount from basket
+        var basketItems = await Basket.GetBasketItemsAsync();
+        totalAmount = basketItems.Sum(item => item.Price * item.Quantity);
     }
 
     private void PopulateFormWithDefaultInfo()
@@ -98,6 +154,95 @@
             => HttpContext.User.Claims.FirstOrDefault(x => x.Type == type)?.Value;
     }
 
+    private async Task OnPaymentMethodChanged(PaymentMethod method)
+    {
+        Info.PaymentMethod = method;
+        
+        // Reset crypto-specific fields when switching away from crypto
+        if (method != PaymentMethod.Cryptocurrency)
+        {
+            cryptoPaymentInfo = null;
+            showTransactionStatus = false;
+            Info.SelectedCryptoCurrency = null;
+            Info.CryptoPaymentAddress = null;
+            Info.CryptoAmount = null;
+            Info.TransactionId = null;
+            Info.TransactionStatus = null;
+        }
+        
+        StateHasChanged();
+    }
+
+    private async Task OnCurrencyChanged(CryptoCurrency? currency)
+    {
+        Info.SelectedCryptoCurrency = currency;
+        
+        // Reset payment info when currency changes
+        cryptoPaymentInfo = null;
+        showTransactionStatus = false;
+        Info.TransactionId = null;
+        Info.TransactionStatus = null;
+        
+        StateHasChanged();
+    }
+
+    private async Task InitiateCryptoPayment()
+    {
+        if (!Info.SelectedCryptoCurrency.HasValue) return;
+
+        isInitiatingPayment = true;
+        StateHasChanged();
+
+        try
+        {
+            cryptoPaymentInfo = await CryptoService.InitiatePaymentAsync(totalAmount, Info.SelectedCryptoCurrency.Value);
+            
+            // Update checkout info with payment details
+            Info.CryptoPaymentAddress = cryptoPaymentInfo.PaymentAddress;
+            Info.CryptoAmount = cryptoPaymentInfo.CryptoAmount;
+            Info.ExchangeRate = cryptoPaymentInfo.ExchangeRate;
+            Info.TransactionId = cryptoPaymentInfo.TransactionId;
+            Info.TransactionStatus = CryptoTransactionStatus.Pending;
+
+            showTransactionStatus = true;
+        }
+        catch (Exception ex)
+        {
+            // Handle error - in a real implementation, show user-friendly error message
+            extraMessages.Clear();
+            extraMessages.Add(new FieldIdentifier(Info, nameof(Info.SelectedCryptoCurrency)), 
+                "Failed to initiate crypto payment. Please try again.");
+        }
+        finally
+        {
+            isInitiatingPayment = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnCryptoPaymentCompleted()
+    {
+        // This would be called when payment is detected
+        showTransactionStatus = true;
+        StateHasChanged();
+    }
+
+    private async Task OnTransactionConfirmed()
+    {
+        Info.TransactionStatus = CryptoTransactionStatus.Confirmed;
+        StateHasChanged();
+    }
+
+    private async Task OnRetryPayment()
+    {
+        // Reset payment state to allow retry
+        cryptoPaymentInfo = null;
+        showTransactionStatus = false;
+        Info.TransactionId = null;
+        Info.TransactionStatus = null;
+        StateHasChanged();
+    }
+
     private async Task HandleSubmitAsync()
     {
         await PerformCustomValidationAsync();
@@ -110,7 +255,11 @@
 
     private async Task HandleValidSubmitAsync()
     {
-        Info.CardTypeId = 1;
+        if (Info.PaymentMethod == PaymentMethod.CreditCard)
+        {
+            Info.CardTypeId = 1;
+        }
+        
         await Basket.CheckoutAsync(Info);
         Nav.NavigateTo("user/orders");
     }
@@ -119,9 +268,25 @@
     {
         extraMessages.Clear();
 
-        if ((await Basket.GetBasketItemsAsync()).Count == 0)
+        var basketItems = await Basket.GetBasketItemsAsync();
+        if (basketItems.Count == 0)
         {
             extraMessages.Add(new FieldIdentifier(Info, ""), "Your cart is empty");
+        }
+
+        // Validate crypto payment if selected
+        if (Info.PaymentMethod == PaymentMethod.Cryptocurrency)
+        {
+            if (!Info.SelectedCryptoCurrency.HasValue)
+            {
+                extraMessages.Add(new FieldIdentifier(Info, nameof(Info.SelectedCryptoCurrency)), 
+                    "Please select a cryptocurrency");
+            }
+            else if (Info.TransactionStatus != CryptoTransactionStatus.Confirmed)
+            {
+                extraMessages.Add(new FieldIdentifier(Info, nameof(Info.TransactionStatus)), 
+                    "Please complete the cryptocurrency payment before placing the order");
+            }
         }
     }
 

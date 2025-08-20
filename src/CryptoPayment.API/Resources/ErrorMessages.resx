@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  
+  <!-- General Error Messages -->
+  <data name="Error.General" xml:space="preserve">
+    <value>An unexpected error occurred. Please try again or contact support if the problem persists.</value>
+  </data>
+  <data name="Error.Network" xml:space="preserve">
+    <value>Unable to connect to the service. Please check your internet connection and try again.</value>
+  </data>
+  <data name="Error.Timeout" xml:space="preserve">
+    <value>The operation timed out. Please try again.</value>
+  </data>
+  
+  <!-- Crypto Payment Specific Errors -->
+  <data name="Error.CryptoPayment.InvalidAddress" xml:space="preserve">
+    <value>The cryptocurrency address is invalid. Please check the address and try again.</value>
+  </data>
+  <data name="Error.CryptoPayment.InsufficientFunds" xml:space="preserve">
+    <value>Insufficient funds. Please ensure you have enough cryptocurrency in your wallet.</value>
+  </data>
+  <data name="Error.CryptoPayment.TransactionFailed" xml:space="preserve">
+    <value>The crypto transaction failed. Please check your wallet and try again.</value>
+  </data>
+  <data name="Error.CryptoPayment.PaymentExpired" xml:space="preserve">
+    <value>The payment window has expired. Please create a new payment.</value>
+  </data>
+  <data name="Error.CryptoPayment.UnsupportedCurrency" xml:space="preserve">
+    <value>The selected cryptocurrency is not currently supported.</value>
+  </data>
+  <data name="Error.CryptoPayment.AmountTooSmall" xml:space="preserve">
+    <value>The payment amount is too small. Please increase the amount and try again.</value>
+  </data>
+  <data name="Error.CryptoPayment.AmountTooLarge" xml:space="preserve">
+    <value>The payment amount exceeds the maximum allowed. Please reduce the amount.</value>
+  </data>
+  
+  <!-- Validation Errors -->
+  <data name="Error.Validation.Required" xml:space="preserve">
+    <value>This field is required.</value>
+  </data>
+  <data name="Error.Validation.InvalidFormat" xml:space="preserve">
+    <value>The format is invalid. Please check your input.</value>
+  </data>
+  <data name="Error.Validation.OutOfRange" xml:space="preserve">
+    <value>The value is outside the acceptable range.</value>
+  </data>
+  
+  <!-- Security Errors -->
+  <data name="Error.Security.Unauthorized" xml:space="preserve">
+    <value>You don't have permission to perform this action.</value>
+  </data>
+  <data name="Error.Security.Forbidden" xml:space="preserve">
+    <value>Access to this resource is forbidden.</value>
+  </data>
+  <data name="Error.Security.InvalidApiKey" xml:space="preserve">
+    <value>Invalid API key provided.</value>
+  </data>
+  
+  <!-- Rate Limiting Errors -->
+  <data name="Error.RateLimit.Exceeded" xml:space="preserve">
+    <value>Too many requests. Please slow down and try again later.</value>
+  </data>
+  <data name="Error.RateLimit.PaymentExceeded" xml:space="preserve">
+    <value>You're creating payments too quickly. Please wait before creating another payment.</value>
+  </data>
+  
+  <!-- External Service Errors -->
+  <data name="Error.External.BlockchainUnavailable" xml:space="preserve">
+    <value>The blockchain network is temporarily unavailable. Please try again in a few minutes.</value>
+  </data>
+  <data name="Error.External.ExchangeRateUnavailable" xml:space="preserve">
+    <value>Exchange rate information is temporarily unavailable. Please try again later.</value>
+  </data>
+  
+  <!-- Category Messages -->
+  <data name="Error.Category.Validation" xml:space="preserve">
+    <value>Please correct the following errors and try again.</value>
+  </data>
+  <data name="Error.Category.Security" xml:space="preserve">
+    <value>A security error occurred. Please verify your credentials and try again.</value>
+  </data>
+  <data name="Error.Category.External" xml:space="preserve">
+    <value>An external service is temporarily unavailable. Please try again later.</value>
+  </data>
+  <data name="Error.Category.Transient" xml:space="preserve">
+    <value>The service is temporarily busy. Please try again in a moment.</value>
+  </data>
+  <data name="Error.Category.RateLimited" xml:space="preserve">
+    <value>You're making requests too quickly. Please slow down and try again.</value>
+  </data>
+  <data name="Error.Category.Business" xml:space="preserve">
+    <value>This operation cannot be completed due to business rules.</value>
+  </data>
+  <data name="Error.Category.Configuration" xml:space="preserve">
+    <value>The service is temporarily misconfigured. Please contact support.</value>
+  </data>
+  
+  <!-- Help Messages -->
+  <data name="Help.ContactSupport" xml:space="preserve">
+    <value>If the problem persists, please contact our support team with the error reference.</value>
+  </data>
+  <data name="Help.CheckStatus" xml:space="preserve">
+    <value>You can check the status of your payment using the transaction ID.</value>
+  </data>
+  <data name="Help.RetryLater" xml:space="preserve">
+    <value>Please try again in a few minutes. If the issue continues, contact support.</value>
+  </data>
+</root>

@@ -1,0 +1,13 @@
+﻿global using Xunit;
+global using Moq;
+global using FluentAssertions;
+global using AutoFixture;
+global using AutoFixture.Xunit2;
+global using Microsoft.EntityFrameworkCore;
+global using Microsoft.Extensions.Logging;
+global using Microsoft.Extensions.DependencyInjection;
+global using eShop.CryptoPayment.API.Infrastructure;
+global using eShop.CryptoPayment.API.Models;
+global using eShop.CryptoPayment.API.Services;
+global using eShop.CryptoPayment.API.IntegrationEvents;
+global using eShop.CryptoPayment.API.IntegrationEvents.Events;

@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using eShop.Ordering.Domain.Events;
 
 namespace eShop.Ordering.Domain.AggregatesModel.OrderAggregate;
 
@@ -33,6 +34,12 @@ public class Order
     public IReadOnlyCollection<OrderItem> OrderItems => _orderItems.AsReadOnly();
 
     public int? PaymentId { get; private set; }
+    
+    public string? CryptoPaymentId { get; private set; }
+    public string? CryptoTransactionHash { get; private set; }
+    public decimal? CryptoAmount { get; private set; }
+    public DateTime? CryptoPaymentInitiatedAt { get; private set; }
+    public DateTime? CryptoPaymentConfirmedAt { get; private set; }
 
     public static Order NewDraft()
     {
@@ -183,4 +190,50 @@ public class Order
     }
 
     public decimal GetTotal() => _orderItems.Sum(o => o.Units * o.UnitPrice);
+
+    public void SetCryptoPaymentPending(string cryptoPaymentId, decimal cryptoAmount)
+    {
+        if (OrderStatus != OrderStatus.StockConfirmed)
+        {
+            StatusChangeException(OrderStatus.AwaitingValidation);
+        }
+
+        if (string.IsNullOrWhiteSpace(cryptoPaymentId))
+            throw new OrderingDomainException("Crypto payment ID cannot be empty");
+
+        if (cryptoAmount <= 0)
+            throw new OrderingDomainException("Crypto amount must be greater than zero");
+
+        CryptoPaymentId = cryptoPaymentId;
+        CryptoAmount = cryptoAmount;
+        CryptoPaymentInitiatedAt = DateTime.UtcNow;
+
+        AddDomainEvent(new CryptoPaymentRequestedDomainEvent(Id, cryptoPaymentId, cryptoAmount));
+        
+        Description = $"Crypto payment initiated. Payment ID: {cryptoPaymentId}, Amount: {cryptoAmount}";
+    }
+
+    public void SetCryptoPaymentConfirmed(string transactionHash)
+    {
+        if (string.IsNullOrWhiteSpace(CryptoPaymentId))
+            throw new OrderingDomainException("No crypto payment initiated for this order");
+
+        if (string.IsNullOrWhiteSpace(transactionHash))
+            throw new OrderingDomainException("Transaction hash cannot be empty");
+
+        if (CryptoPaymentConfirmedAt.HasValue)
+            throw new OrderingDomainException("Crypto payment already confirmed");
+
+        CryptoTransactionHash = transactionHash;
+        CryptoPaymentConfirmedAt = DateTime.UtcNow;
+        OrderStatus = OrderStatus.Paid;
+
+        AddDomainEvent(new CryptoPaymentConfirmedDomainEvent(Id, CryptoPaymentId, transactionHash, CryptoAmount.Value));
+        
+        Description = $"Crypto payment confirmed. Transaction hash: {transactionHash}";
+    }
+
+    public bool HasCryptoPayment => !string.IsNullOrWhiteSpace(CryptoPaymentId);
+    
+    public bool IsCryptoPaymentConfirmed => HasCryptoPayment && CryptoPaymentConfirmedAt.HasValue;
 }

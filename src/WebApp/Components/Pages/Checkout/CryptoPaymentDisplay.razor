@@ -1,0 +1,219 @@
+@using eShop.WebApp.Services
+@inject ICryptoPaymentService CryptoService
+@inject IJSRuntime JSRuntime
+
+<div class="crypto-payment-display">
+    @if (PaymentInfo != null)
+    {
+        <div class="payment-header">
+            <h3>Complete Your Payment</h3>
+            <div class="timer-container">
+                <div class="timer-circle">
+                    <svg class="timer-svg" viewBox="0 0 100 100">
+                        <circle class="timer-background" cx="50" cy="50" r="45"></circle>
+                        <circle class="timer-progress" cx="50" cy="50" r="45" 
+                                style="stroke-dasharray: @circumference; stroke-dashoffset: @strokeDashOffset"></circle>
+                    </svg>
+                    <div class="timer-text">@timeRemaining</div>
+                </div>
+                <div class="timer-label">Time remaining</div>
+            </div>
+        </div>
+
+        <div class="payment-content">
+            <div class="payment-info-section">
+                <div class="amount-display">
+                    <div class="crypto-amount">
+                        @PaymentInfo.CryptoAmount.ToString("F8") @CryptoService.GetCurrencySymbol(PaymentInfo.Currency)
+                    </div>
+                    <div class="usd-equivalent">
+                        ≈ $@PaymentInfo.UsdAmount.ToString("N2") USD
+                    </div>
+                </div>
+
+                <div class="address-section">
+                    <label for="payment-address">Payment Address</label>
+                    <div class="address-input-group">
+                        <input id="payment-address" type="text" value="@PaymentInfo.PaymentAddress" readonly />
+                        <button type="button" class="copy-button" @onclick="CopyAddress">
+                            @if (isCopied)
+                            {
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                <span>Copied!</span>
+                            }
+                            else
+                            {
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" stroke="currentColor" stroke-width="2" fill="none"/>
+                                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2" fill="none"/>
+                                </svg>
+                                <span>Copy</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mobile-actions">
+                    <button type="button" class="wallet-button" @onclick="OpenWallet">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M21 12V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h14a2 2 0 002-2v-5h-8a2 2 0 010-4h8z" stroke="currentColor" stroke-width="2" fill="none"/>
+                            <circle cx="17" cy="12" r="1" fill="currentColor"/>
+                        </svg>
+                        Open Wallet App
+                    </button>
+                </div>
+            </div>
+
+            <div class="qr-section">
+                <div class="qr-container">
+                    @if (qrCodeData != null)
+                    {
+                        <img src="data:image/png;base64,@Convert.ToBase64String(qrCodeData)" alt="Payment QR Code" class="qr-code" />
+                    }
+                    else
+                    {
+                        <div class="qr-loading">
+                            <div class="spinner"></div>
+                            <span>Generating QR Code...</span>
+                        </div>
+                    }
+                </div>
+                <div class="qr-instructions">
+                    <p>Scan with your crypto wallet to pay</p>
+                    <div class="network-fee">
+                        <small>Network fee: ~$2.50</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="payment-instructions">
+            <div class="instruction-step">
+                <div class="step-number">1</div>
+                <div class="step-text">Copy the address or scan the QR code with your wallet</div>
+            </div>
+            <div class="instruction-step">
+                <div class="step-number">2</div>
+                <div class="step-text">Send exactly @PaymentInfo.CryptoAmount.ToString("F8") @CryptoService.GetCurrencySymbol(PaymentInfo.Currency)</div>
+            </div>
+            <div class="instruction-step">
+                <div class="step-number">3</div>
+                <div class="step-text">Wait for confirmation (typically 1-10 minutes)</div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public CryptoPaymentInfo? PaymentInfo { get; set; }
+    [Parameter] public EventCallback OnPaymentCompleted { get; set; }
+
+    private byte[]? qrCodeData;
+    private bool isCopied = false;
+    private Timer? copyTimer;
+    private Timer? countdownTimer;
+    private string timeRemaining = "15:00";
+    private double timeRemainingSeconds = 900; // 15 minutes
+    private readonly double circumference = 2 * Math.PI * 45; // radius = 45
+    private double strokeDashOffset = 0;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (PaymentInfo != null && qrCodeData == null)
+        {
+            await GenerateQRCode();
+            StartCountdown();
+        }
+    }
+
+    private async Task GenerateQRCode()
+    {
+        if (PaymentInfo != null)
+        {
+            try
+            {
+                var paymentUri = CryptoService.GetPaymentUri(PaymentInfo.Currency, PaymentInfo.PaymentAddress, PaymentInfo.CryptoAmount);
+                qrCodeData = await CryptoService.GenerateQRCodeAsync(paymentUri);
+                StateHasChanged();
+            }
+            catch (Exception)
+            {
+                // Handle QR generation error
+            }
+        }
+    }
+
+    private void StartCountdown()
+    {
+        if (PaymentInfo != null)
+        {
+            var expiryTime = PaymentInfo.ExpiresAt;
+            countdownTimer = new Timer(UpdateCountdown, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        }
+    }
+
+    private async void UpdateCountdown(object? state)
+    {
+        if (PaymentInfo == null) return;
+
+        var now = DateTime.UtcNow;
+        var timeLeft = PaymentInfo.ExpiresAt - now;
+
+        if (timeLeft.TotalSeconds <= 0)
+        {
+            timeRemaining = "00:00";
+            timeRemainingSeconds = 0;
+            strokeDashOffset = circumference;
+            countdownTimer?.Dispose();
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        timeRemainingSeconds = timeLeft.TotalSeconds;
+        var minutes = (int)timeLeft.TotalMinutes;
+        var seconds = timeLeft.Seconds;
+        timeRemaining = $"{minutes:D2}:{seconds:D2}";
+
+        // Calculate progress for timer circle
+        var totalSeconds = 900; // 15 minutes
+        var progress = (totalSeconds - timeRemainingSeconds) / totalSeconds;
+        strokeDashOffset = circumference * progress;
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task CopyAddress()
+    {
+        if (PaymentInfo?.PaymentAddress != null)
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", PaymentInfo.PaymentAddress);
+            isCopied = true;
+            StateHasChanged();
+
+            // Reset copy state after 2 seconds
+            copyTimer?.Dispose();
+            copyTimer = new Timer(_ => InvokeAsync(() =>
+            {
+                isCopied = false;
+                StateHasChanged();
+            }), null, TimeSpan.FromSeconds(2), Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    private async Task OpenWallet()
+    {
+        if (PaymentInfo != null)
+        {
+            var paymentUri = CryptoService.GetPaymentUri(PaymentInfo.Currency, PaymentInfo.PaymentAddress, PaymentInfo.CryptoAmount);
+            await JSRuntime.InvokeVoidAsync("open", paymentUri);
+        }
+    }
+
+    public void Dispose()
+    {
+        copyTimer?.Dispose();
+        countdownTimer?.Dispose();
+    }
+}
