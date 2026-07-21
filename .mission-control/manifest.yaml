@@ -1,0 +1,115 @@
+version: 1
+name: eShop
+tagline: Referencyjny sklep e-commerce na .NET Aspire z mikroserwisami i płatnościami kryptowalutowymi
+description: |-
+  eShop to referencyjna aplikacja .NET demonstrująca architekturę mikroserwisową dla sklepu e-commerce, zbudowana z wykorzystaniem .NET Aspire jako orkiestratora usług. Projekt ten jest oficjalnym przykładem Microsoftu (dotnet/eShop) rozszerzonym o autorski fork dodający obsługę płatności kryptowalutowych oraz zaawansowane mechanizmy bezpieczeństwa i odporności na awarie.
+
+  Architektura opiera się na zestawie niezależnych mikroserwisów komunikujących się poprzez event bus oparty na RabbitMQ oraz REST/gRPC: katalog produktów (Catalog.API), koszyk (Basket.API z Redis), zamówienia (Ordering.API z bazą PostgreSQL i wzorcem DDD/CQRS przy użyciu MediatR), tożsamość i uwierzytelnianie (Identity.API oparte na Duende IdentityServer), webhooki (Webhooks.API), przetwarzanie zamówień i płatności (OrderProcessor, PaymentProcessor) oraz frontend webowy (WebApp w Blazor) z aplikacją mobilną/desktopową (ClientApp w .NET MAUI). Całość spięta jest przez eShop.AppHost wykorzystujący .NET Aspire do definiowania topologii usług, zależności i zasobów (Postgres, Redis, RabbitMQ) w środowisku deweloperskim i produkcyjnym (możliwość wdrożenia na Azure przez azd).
+
+  Fork wprowadza kompletny system płatności kryptowalutowych (Bitcoin i Ethereum) poprzez nowe usługi CryptoPayment.API i CryptoPayment.BlockchainServices, obejmujący generowanie adresów płatniczych, monitorowanie transakcji blockchain w czasie rzeczywistym (SignalR), kody QR oraz bezpieczne zarządzanie kluczami kryptograficznymi (HKDF). Dodatkowo wzbogacono projekt o wzorce odporności (circuit breaker z Polly, wielopoziomowe cache'owanie Redis/in-memory, retry z exponential backoff), rate limiting, globalną obsługę wyjątków oraz rozbudowany zestaw testów jednostkowych, integracyjnych i E2E (Playwright).
+features:
+  - name: Katalog produktów (Catalog.API)
+    description: Mikroserwis zarządzający katalogiem produktów, wykorzystujący PostgreSQL z rozszerzeniem pgvector do wyszukiwania semantycznego/AI.
+    status: done
+  - name: Koszyk zakupowy (Basket.API)
+    description: Usługa koszyka klienta oparta na Redis, komunikująca się z Identity.API i event busem.
+    status: done
+  - name: Zamówienia (Ordering.API)
+    description: Serwis zarządzania zamówieniami zbudowany w architekturze DDD/CQRS z MediatR, walidacją FluentValidation i obsługą zdarzeń domenowych/integracyjnych.
+    status: done
+  - name: Tożsamość i uwierzytelnianie (Identity.API)
+    description: Serwis logowania i zarządzania tożsamością oparty na Duende IdentityServer, dostarczający tokeny dla pozostałych usług.
+    status: done
+  - name: Webhooki (Webhooks.API + WebhookClient)
+    description: Mechanizm subskrypcji i wysyłki powiadomień webhook o zdarzeniach w systemie (np. zmiana ceny, status zamówienia).
+    status: done
+  - name: Przetwarzanie zamówień i płatności (OrderProcessor, PaymentProcessor)
+    description: Usługi w tle obsługujące workflow zamówień oraz symulację/procesowanie płatności.
+    status: done
+  - name: Frontend WebApp (Blazor)
+    description: Główna aplikacja webowa sklepu (Blazor) integrująca katalog, koszyk, zamówienia i płatności kryptowalutowe.
+    status: done
+  - name: Aplikacja kliencka (.NET MAUI / ClientApp, HybridApp)
+    description: Aplikacja mobilna/desktopowa korzystająca z API eShop poprzez reverse proxy YARP (mobile-bff).
+    status: done
+  - name: Orkiestracja .NET Aspire (eShop.AppHost)
+    description: Centralny punkt definicji topologii usług, zasobów (Postgres, Redis, RabbitMQ) i połączeń między mikroserwisami dla developmentu i wdrożeń.
+    status: done
+  - name: Płatności kryptowalutowe (CryptoPayment.API, CryptoPayment.BlockchainServices)
+    description: "Nowy podsystem obsługujący płatności w Bitcoin i Ethereum: generowanie adresów, monitorowanie transakcji blockchain, aktualizacje statusu przez SignalR, kody QR."
+    status: done
+  - name: Bezpieczeństwo kryptograficzne (HKDF, secure memory)
+    description: Bezpieczne wyprowadzanie kluczy (HKDF zamiast prostego SHA256), zarządzanie pamięcią wrażliwych danych, rotacja kluczy, walidacja adresów kryptowalut.
+    status: done
+  - name: Wzorce odporności (Circuit Breaker, wielopoziomowy cache)
+    description: Implementacja Polly do circuit breakera, retry z exponential backoff oraz cache Redis z fallbackiem in-memory dla usług płatniczych.
+    status: done
+  - name: Rate limiting i ochrona API
+    description: Middleware ograniczający liczbę żądań oraz chroniący przed atakami DDoS na endpointy API.
+    status: done
+  - name: Globalna obsługa błędów i logowanie
+    description: Scentralizowane middleware wyjątków z korelacją żądań, ustrukturyzowane logowanie i przyjazne komunikaty błędów w UI Blazor.
+    status: done
+  - name: Testy jednostkowe, integracyjne i E2E
+    description: Rozbudowany zestaw testów (xUnit dla usług .NET, testy integracyjne bazy danych i event busa, testy E2E Playwright dla przepływów płatności kryptowalutowych).
+    status: done
+  - name: Integracja z Azure OpenAI / Ollama
+    description: Opcjonalna integracja komponentu AI (wyszukiwanie semantyczne katalogu) poprzez Azure OpenAI lub lokalny model Ollama, domyślnie wyłączona w kodzie.
+    status: planned
+  - name: Wdrożenie na Azure (azd)
+    description: Wsparcie dla Azure Developer CLI umożliwiające automatyczne provisioning i wdrożenie całej aplikacji Aspire na Azure.
+    status: done
+stack:
+  languages:
+    - C#
+    - TypeScript
+    - JavaScript
+    - HTML
+    - CSS
+  frameworks:
+    - .NET 9
+    - .NET Aspire
+    - ASP.NET Core
+    - Blazor
+    - .NET MAUI
+    - Entity Framework Core
+    - MediatR
+    - FluentValidation
+    - Duende IdentityServer
+    - SignalR
+    - Polly
+    - YARP
+    - Playwright
+  infra:
+    - Docker
+    - PostgreSQL (pgvector)
+    - Redis
+    - RabbitMQ
+    - Azure Developer CLI (azd)
+    - GitHub Actions
+links: {}
+status: active
+tags:
+  - e-commerce
+  - mikroserwisy
+  - dotnet-aspire
+  - blazor
+  - cryptocurrency
+  - bitcoin
+  - ethereum
+  - blockchain
+  - ddd
+  - cqrs
+  - event-driven
+  - rabbitmq
+  - postgresql
+  - redis
+  - identity-server
+  - resilience
+  - security
+  - reference-application
+  - fork
+ai:
+  generated_at: 2026-07-21T00:15:49.773Z
+  source_commit: 8f474af10bb487d07abb9e288b882fbe9a0ad875
+locked: []
